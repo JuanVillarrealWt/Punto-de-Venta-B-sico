@@ -6,7 +6,7 @@ using POS.Domain.Interfaces;
 
 namespace POS.Application.Features.Clientes.Handlers;
 
-public class GetClientesQueryHandler : IRequestHandler<GetClientesQuery, IEnumerable<ClienteDto>>
+public class GetClientesQueryHandler : IRequestHandler<GetClientesQuery, PagedResult<ClienteDto>>
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
@@ -17,10 +17,21 @@ public class GetClientesQueryHandler : IRequestHandler<GetClientesQuery, IEnumer
         _mapper = mapper;
     }
 
-    public async Task<IEnumerable<ClienteDto>> Handle(GetClientesQuery request, CancellationToken cancellationToken)
+    public async Task<PagedResult<ClienteDto>> Handle(GetClientesQuery request, CancellationToken cancellationToken)
     {
-        var clientes = await _unitOfWork.Clientes.GetAllAsync(request.Search, request.SearchBy);
-        return _mapper.Map<IEnumerable<ClienteDto>>(clientes);
+        var (items, totalCount) = await _unitOfWork.Clientes.GetAllAsync(
+            request.Search,
+            request.SearchBy,
+            request.Page,
+            request.PageSize);
+
+        return new PagedResult<ClienteDto>
+        {
+            Items = _mapper.Map<IEnumerable<ClienteDto>>(items),
+            TotalCount = totalCount,
+            Page = request.Page,
+            PageSize = request.PageSize
+        };
     }
 }
 

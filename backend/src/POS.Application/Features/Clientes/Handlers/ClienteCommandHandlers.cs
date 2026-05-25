@@ -40,9 +40,9 @@ public class CreateClienteCommandHandler : IRequestHandler<CreateClienteCommand,
             Identificacion = TextHelper.RemoveSpaces(request.Identificacion),
             Nombre         = TextHelper.TitleCase(request.Nombre),
             Apellido       = TextHelper.TitleCase(request.Apellido),
-            Direccion      = request.Direccion?.Trim(),
-            Telefono       = TextHelper.RemoveSpaces(request.Telefono),
-            Email          = TextHelper.RemoveSpaces(request.Email).ToLower()
+            Direccion      = string.IsNullOrWhiteSpace(request.Direccion) ? null : request.Direccion.Trim(),
+            Telefono       = string.IsNullOrWhiteSpace(request.Telefono) ? null : TextHelper.RemoveSpaces(request.Telefono),
+            Email          = string.IsNullOrWhiteSpace(request.Email) ? null : TextHelper.RemoveSpaces(request.Email).ToLower()
         };
         await _uow.Clientes.AddAsync(cliente);
         await _uow.CommitAsync(ct);
@@ -69,9 +69,9 @@ public class UpdateClienteCommandHandler : IRequestHandler<UpdateClienteCommand,
         cliente.Identificacion = TextHelper.RemoveSpaces(request.Identificacion);
         cliente.Nombre         = TextHelper.TitleCase(request.Nombre);
         cliente.Apellido       = TextHelper.TitleCase(request.Apellido);
-        cliente.Direccion      = request.Direccion?.Trim();
-        cliente.Telefono       = TextHelper.RemoveSpaces(request.Telefono);
-        cliente.Email          = TextHelper.RemoveSpaces(request.Email).ToLower();
+        cliente.Direccion      = string.IsNullOrWhiteSpace(request.Direccion) ? null : request.Direccion.Trim();
+        cliente.Telefono       = string.IsNullOrWhiteSpace(request.Telefono) ? null : TextHelper.RemoveSpaces(request.Telefono);
+        cliente.Email          = string.IsNullOrWhiteSpace(request.Email) ? null : TextHelper.RemoveSpaces(request.Email).ToLower();
 
         _uow.Clientes.Update(cliente);
         await _uow.CommitAsync(ct);
@@ -93,7 +93,20 @@ public class DeleteClienteCommandHandler : IRequestHandler<DeleteClienteCommand,
         var cliente = await _uow.Clientes.GetByIdAsync(request.Id);
         if (cliente is null) return false;
 
-        _uow.Clientes.Delete(cliente);
+        bool hasHistory = await _uow.Clientes.HasHistoryAsync(request.Id);
+
+        if (hasHistory)
+        {
+            // Soft Delete (Desactivar)
+            cliente.Activo = false;
+            _uow.Clientes.Update(cliente);
+        }
+        else
+        {
+            // Physical Delete
+            _uow.Clientes.Delete(cliente);
+        }
+
         await _uow.CommitAsync(ct);
         return true;
     }

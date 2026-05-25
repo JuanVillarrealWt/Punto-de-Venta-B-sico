@@ -5,11 +5,13 @@ namespace POS.Application.Features.Facturas.Commands;
 
 public record GenerarFacturaCommand(
     int ClienteId,
+    int MetodoPagoId,
     decimal PorcentajeIva,
     string? Observaciones,
-    List<FacturaItemCommand> Items
+    List<FacturaItemCommand> Items,
+    int UsuarioId
 ) : IRequest<FacturaDto>;
 
 public record FacturaItemCommand(int ProductoId, int Cantidad);
 
-public record AnularFacturaCommand(int Id) : IRequest<FacturaDto>;
+public record AnularFacturaCommand(int Id, int UsuarioId) : IRequest<FacturaDto>;

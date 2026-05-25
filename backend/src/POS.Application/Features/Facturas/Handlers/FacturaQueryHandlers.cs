@@ -19,7 +19,7 @@ public class GetFacturasQueryHandler : IRequestHandler<GetFacturasQuery, IEnumer
 
     public async Task<IEnumerable<FacturaDto>> Handle(GetFacturasQuery request, CancellationToken ct)
     {
-        var facturas = await _uow.Facturas.GetAllAsync(request.Desde, request.Hasta, request.SearchCliente, request.SearchBy);
+        var facturas = await _uow.Facturas.GetAllAsync(request.Desde, request.Hasta, request.SearchCliente, request.SearchBy, request.UsuarioId);
         return _mapper.Map<IEnumerable<FacturaDto>>(facturas);
     }
 }

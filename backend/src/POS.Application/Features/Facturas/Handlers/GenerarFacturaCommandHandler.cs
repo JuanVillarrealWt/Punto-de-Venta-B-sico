@@ -41,8 +41,11 @@ public class GenerarFacturaCommandHandler : IRequestHandler<GenerarFacturaComman
             NumeroFactura = numeroFactura,
             Fecha = DateTime.UtcNow,
             ClienteId = request.ClienteId,
+            UsuarioId = request.UsuarioId,
+            MetodoPagoId = request.MetodoPagoId,
             PorcentajeIva = request.PorcentajeIva,
-            Observaciones = request.Observaciones
+            Observaciones = request.Observaciones,
+            Estado = "CONFIRMADA"
         };
 
         decimal subtotal = 0;
@@ -66,6 +69,7 @@ public class GenerarFacturaCommandHandler : IRequestHandler<GenerarFacturaComman
             var detalle = new FacturaDetalle
             {
                 ProductoId = producto.Id,
+                ProductoCodigo = producto.Codigo,
                 ProductoNombre = producto.Nombre,
                 Cantidad = item.Cantidad,
                 PrecioUnitario = producto.Precio,
@@ -75,9 +79,24 @@ public class GenerarFacturaCommandHandler : IRequestHandler<GenerarFacturaComman
             factura.Detalles.Add(detalle);
             subtotal += detalle.Subtotal;
 
-            // Descontar stock
+            // Registrar Movimiento de Stock
+            int stockAnterior = producto.Stock;
             producto.Stock -= item.Cantidad;
+            int stockNuevo = producto.Stock;
+
             _uow.Productos.Update(producto);
+
+            await _uow.MovimientosStock.AddAsync(new MovimientoStock
+            {
+                ProductoId = producto.Id,
+                TipoMovimiento = "SALIDA",
+                Cantidad = item.Cantidad,
+                StockAnterior = stockAnterior,
+                StockNuevo = stockNuevo,
+                Referencia = $"Venta #{numeroFactura}",
+                Fecha = DateTime.UtcNow,
+                UsuarioId = request.UsuarioId
+            });
         }
 
         // 6. Calcular totales

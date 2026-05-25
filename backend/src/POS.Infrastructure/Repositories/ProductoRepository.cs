@@ -11,29 +11,42 @@ public class ProductoRepository : IProductoRepository
 
     public ProductoRepository(POSDbContext db) => _db = db;
 
-    public async Task<IEnumerable<Producto>> GetAllAsync(string? search = null, string? searchBy = null)
+    public async Task<(IEnumerable<Producto> Items, int TotalCount)> GetAllAsync(
+        string? search = null,
+        string? searchBy = null,
+        int page = 1,
+        int pageSize = 25)
     {
-        var query = _db.Productos.AsNoTracking().Where(p => p.Activo);
+        var query = _db.Productos.AsNoTracking().AsQueryable();
+
+        // Si hay búsqueda, filtra y devuelve un slice pequeño (máx 50) sin paginación estricta
         if (!string.IsNullOrWhiteSpace(search))
         {
             if (string.Equals(searchBy, "nombre", StringComparison.OrdinalIgnoreCase))
-            {
                 query = query.Where(p => p.Nombre.Contains(search));
-            }
             else if (string.Equals(searchBy, "codigo", StringComparison.OrdinalIgnoreCase))
-            {
                 query = query.Where(p => p.Codigo.Contains(search));
-            }
             else
-            {
-                query = query.Where(p =>
-                    p.Nombre.Contains(search) ||
-                    p.Codigo.Contains(search));
-            }
-            // Limit search results to top 50 for performance
-            return await query.OrderBy(p => p.Nombre).Take(50).ToListAsync();
+                query = query.Where(p => p.Nombre.Contains(search) || p.Codigo.Contains(search));
+
+            // Búsqueda: devuelve hasta 50 resultados ordenados, sin paginación pesada
+            var searchResults = await query.OrderBy(p => p.Nombre).Take(50).ToListAsync();
+            return (searchResults, searchResults.Count);
         }
-        return await query.OrderBy(p => p.Nombre).ToListAsync();
+
+        // Sin búsqueda: paginación del servidor
+        var totalCount = await query.CountAsync();
+
+        var clampedPage = Math.Max(1, page);
+        var clampedPageSize = Math.Clamp(pageSize, 10, 100);
+
+        var items = await query
+            .OrderBy(p => p.Nombre)
+            .Skip((clampedPage - 1) * clampedPageSize)
+            .Take(clampedPageSize)
+            .ToListAsync();
+
+        return (items, totalCount);
     }
 
     public async Task<Producto?> GetByIdAsync(int id) =>
@@ -49,9 +62,9 @@ public class ProductoRepository : IProductoRepository
     }
 
     public void Update(Producto producto) => _db.Productos.Update(producto);
-    public void Delete(Producto producto)
-    {
-        producto.Activo = false;
-        _db.Productos.Update(producto);
-    }
+
+    public void Delete(Producto producto) => _db.Productos.Remove(producto);
+
+    public async Task<bool> HasHistoryAsync(int id) =>
+        await _db.FacturasDetalle.AnyAsync(fd => fd.ProductoId == id);
 }

@@ -11,6 +11,11 @@ public class POSDbContext : DbContext
     public DbSet<Producto> Productos => Set<Producto>();
     public DbSet<FacturaMaestro> FacturasMaestro => Set<FacturaMaestro>();
     public DbSet<FacturaDetalle> FacturasDetalle => Set<FacturaDetalle>();
+    public DbSet<Rol> Roles => Set<Rol>();
+    public DbSet<Usuario> Usuarios => Set<Usuario>();
+    public DbSet<MetodoPago> MetodosPago => Set<MetodoPago>();
+    public DbSet<MovimientoStock> MovimientosStock => Set<MovimientoStock>();
+    public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -56,12 +61,22 @@ public class POSDbContext : DbContext
             e.Property(f => f.MontoIva).HasColumnType("decimal(10,2)");
             e.Property(f => f.Total).HasColumnType("decimal(10,2)");
             e.Property(f => f.Observaciones).HasMaxLength(300);
-            e.Property(f => f.Estado).HasMaxLength(10).IsRequired().HasDefaultValue("ACTIVA");
+            e.Property(f => f.Estado).HasMaxLength(20).IsRequired().HasDefaultValue("CONFIRMADA");
             e.HasIndex(f => f.NumeroFactura).IsUnique();
 
             e.HasOne(f => f.Cliente)
                 .WithMany(c => c.Facturas)
                 .HasForeignKey(f => f.ClienteId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(f => f.Usuario)
+                .WithMany()
+                .HasForeignKey(f => f.UsuarioId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(f => f.MetodoPago)
+                .WithMany()
+                .HasForeignKey(f => f.MetodoPagoId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -70,6 +85,7 @@ public class POSDbContext : DbContext
         {
             e.ToTable("FacturaDetalle");
             e.HasKey(d => d.Id);
+            e.Property(d => d.ProductoCodigo).HasMaxLength(20).IsRequired();
             e.Property(d => d.ProductoNombre).HasMaxLength(150);
             e.Property(d => d.PrecioUnitario).HasColumnType("decimal(10,2)");
             e.Property(d => d.Subtotal).HasColumnType("decimal(10,2)");
@@ -83,6 +99,59 @@ public class POSDbContext : DbContext
                 .WithMany(p => p.FacturaDetalles)
                 .HasForeignKey(d => d.ProductoId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Rol
+        modelBuilder.Entity<Rol>(e =>
+        {
+            e.ToTable("Roles");
+            e.HasKey(r => r.Id);
+            e.Property(r => r.Nombre).HasMaxLength(50).IsRequired();
+            e.HasIndex(r => r.Nombre).IsUnique();
+        });
+
+        // Usuario
+        modelBuilder.Entity<Usuario>(e =>
+        {
+            e.ToTable("Usuarios");
+            e.HasKey(u => u.Id);
+            e.Property(u => u.Username).HasMaxLength(50).IsRequired();
+            e.Property(u => u.Nombre).HasMaxLength(100).IsRequired();
+            e.Property(u => u.Apellido).HasMaxLength(100).IsRequired();
+            e.Property(u => u.Cedula).HasColumnType("char(10)");
+            e.Property(u => u.Email).HasMaxLength(100).IsRequired();
+            e.Property(u => u.RefreshToken).HasMaxLength(200);
+            e.Property(u => u.RefreshTokenExpiryTime);
+            e.HasIndex(u => u.Username).IsUnique();
+        });
+
+        // MetodoPago
+        modelBuilder.Entity<MetodoPago>(e =>
+        {
+            e.ToTable("MetodosPago");
+            e.HasKey(m => m.Id);
+            e.Property(m => m.Nombre).HasMaxLength(50).IsRequired();
+        });
+
+        // MovimientoStock
+        modelBuilder.Entity<MovimientoStock>(e =>
+        {
+            e.ToTable("MovimientoStock");
+            e.HasKey(ms => ms.Id);
+            e.Property(ms => ms.TipoMovimiento).HasMaxLength(20).IsRequired();
+            e.Property(ms => ms.Referencia).HasMaxLength(100);
+            e.Property(ms => ms.StockAnterior).IsRequired();
+            e.Property(ms => ms.StockNuevo).IsRequired();
+        });
+
+        // ErrorLog
+        modelBuilder.Entity<ErrorLog>(e =>
+        {
+            e.ToTable("ErrorLog");
+            e.HasKey(err => err.Id);
+            e.Property(err => err.Pantalla).HasMaxLength(100);
+            e.Property(err => err.Evento).HasMaxLength(100);
+            e.Property(err => err.CreatedAt);
         });
     }
 }

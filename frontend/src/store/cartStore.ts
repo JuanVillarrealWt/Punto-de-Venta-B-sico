@@ -15,6 +15,7 @@ interface CartState {
   items: CartItem[];
   clienteId: number | null;
   clienteNombre: string;
+  metodoPagoId: number;
   porcentajeIva: number;
   observaciones: string;
 
@@ -27,7 +28,8 @@ interface CartState {
   addItem: (producto: Producto, cantidad?: number) => void;
   removeItem: (productoId: number) => void;
   updateCantidad: (productoId: number, cantidad: number) => void;
-  setCliente: (id: number, nombre: string) => void;
+  setCliente: (id: number | null, nombre: string) => void;
+  setMetodoPago: (id: number) => void;
   setObservaciones: (obs: string) => void;
   clearCart: () => void;
   recalculate: () => void;
@@ -37,6 +39,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   items: [],
   clienteId: null,
   clienteNombre: '',
+  metodoPagoId: 1,
   porcentajeIva: 15,
   observaciones: '',
   subtotal: 0,
@@ -82,6 +85,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 
   setCliente: (id, nombre) => set({ clienteId: id, clienteNombre: nombre }),
+  setMetodoPago: (id) => set({ metodoPagoId: id }),
   setObservaciones: (obs) => set({ observaciones: obs }),
 
   clearCart: () =>
@@ -89,6 +93,7 @@ export const useCartStore = create<CartState>((set, get) => ({
       items: [],
       clienteId: null,
       clienteNombre: '',
+      metodoPagoId: 1,
       observaciones: '',
       subtotal: 0,
       montoIva: 0,

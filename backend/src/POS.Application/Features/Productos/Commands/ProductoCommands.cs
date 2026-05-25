@@ -8,7 +8,8 @@ public record CreateProductoCommand(
     string Nombre,
     string? Descripcion,
     decimal Precio,
-    int Stock
+    int Stock,
+    int? UsuarioId = null
 ) : IRequest<ProductoDto>;
 
 public record UpdateProductoCommand(
@@ -17,7 +18,8 @@ public record UpdateProductoCommand(
     string Nombre,
     string? Descripcion,
     decimal Precio,
-    int Stock
+    int Stock,
+    int? UsuarioId = null
 ) : IRequest<ProductoDto>;
 
 public record DeleteProductoCommand(int Id) : IRequest<bool>;

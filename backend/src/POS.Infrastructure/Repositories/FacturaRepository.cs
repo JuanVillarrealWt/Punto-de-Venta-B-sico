@@ -11,19 +11,24 @@ public class FacturaRepository : IFacturaRepository
 
     public FacturaRepository(POSDbContext db) => _db = db;
 
-    public async Task<IEnumerable<FacturaMaestro>> GetAllAsync(DateTime? desde = null, DateTime? hasta = null, string? searchCliente = null, string? searchBy = null)
+    public async Task<IEnumerable<FacturaMaestro>> GetAllAsync(DateTime? desde = null, DateTime? hasta = null, string? searchCliente = null, string? searchBy = null, int? usuarioId = null)
     {
         var query = _db.FacturasMaestro
             .AsNoTracking()
             .Include(f => f.Cliente)
+            .Include(f => f.Usuario)
+            .Include(f => f.MetodoPago)
             .Include(f => f.Detalles)
-            .Where(f => f.Estado == "ACTIVA")  // Solo facturas activas
             .AsQueryable();
+
+        if (usuarioId.HasValue)
+            query = query.Where(f => f.UsuarioId == usuarioId.Value);
 
         if (desde.HasValue)
             query = query.Where(f => f.Fecha >= desde.Value);
         if (hasta.HasValue)
             query = query.Where(f => f.Fecha <= hasta.Value.AddDays(1));
+        
         if (!string.IsNullOrWhiteSpace(searchCliente))
         {
             if (string.Equals(searchBy, "factura", StringComparison.OrdinalIgnoreCase))
@@ -32,7 +37,11 @@ public class FacturaRepository : IFacturaRepository
             }
             else if (string.Equals(searchBy, "cliente_nombre", StringComparison.OrdinalIgnoreCase))
             {
-                query = query.Where(f => f.Cliente.Nombre.Contains(searchCliente) || f.Cliente.Apellido.Contains(searchCliente));
+                query = query.Where(f => f.Cliente.Nombre.Contains(searchCliente));
+            }
+            else if (string.Equals(searchBy, "cliente_apellido", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(f => f.Cliente.Apellido.Contains(searchCliente));
             }
             else if (string.Equals(searchBy, "cliente_identificacion", StringComparison.OrdinalIgnoreCase))
             {
@@ -45,7 +54,6 @@ public class FacturaRepository : IFacturaRepository
                     f.Cliente.Apellido.Contains(searchCliente) ||
                     f.NumeroFactura.Contains(searchCliente));
             }
-            // Limit results for broader searches
             return await query.OrderByDescending(f => f.Fecha).Take(100).ToListAsync();
         }
 
@@ -55,12 +63,16 @@ public class FacturaRepository : IFacturaRepository
     public async Task<FacturaMaestro?> GetByIdAsync(int id) =>
         await _db.FacturasMaestro
             .Include(f => f.Cliente)
+            .Include(f => f.Usuario)
+            .Include(f => f.MetodoPago)
             .Include(f => f.Detalles)
             .FirstOrDefaultAsync(f => f.Id == id);
 
     public async Task<FacturaMaestro?> GetByNumeroAsync(string numero) =>
         await _db.FacturasMaestro
             .Include(f => f.Cliente)
+            .Include(f => f.Usuario)
+            .Include(f => f.MetodoPago)
             .Include(f => f.Detalles)
             .FirstOrDefaultAsync(f => f.NumeroFactura == numero);
 
@@ -70,8 +82,7 @@ public class FacturaRepository : IFacturaRepository
             .OrderByDescending(f => f.Id)
             .FirstOrDefaultAsync();
 
-        if (ultima is null)
-            return "0001";
+        if (ultima is null) return "0001";
 
         if (int.TryParse(ultima.NumeroFactura, out var num))
             return (num + 1).ToString("D4");
@@ -85,9 +96,6 @@ public class FacturaRepository : IFacturaRepository
         return factura;
     }
 
-    /// <summary>
-    /// Anulación lógica: marca la factura como ANULADA y revierte el stock de cada producto.
-    /// </summary>
     public async Task<FacturaMaestro?> AnularAsync(int id)
     {
         var factura = await _db.FacturasMaestro
@@ -98,17 +106,7 @@ public class FacturaRepository : IFacturaRepository
         if (factura.Estado == "ANULADA")
             throw new InvalidOperationException("La factura ya está anulada.");
 
-        // Revertir stock de cada producto
-        foreach (var detalle in factura.Detalles)
-        {
-            var producto = await _db.Productos.FindAsync(detalle.ProductoId);
-            if (producto is not null)
-                producto.Stock += detalle.Cantidad;
-        }
-
-        // Borrado lógico
         factura.Estado = "ANULADA";
-
         return factura;
     }
 }

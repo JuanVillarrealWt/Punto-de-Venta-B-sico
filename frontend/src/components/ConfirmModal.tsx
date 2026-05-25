@@ -33,62 +33,62 @@ export default function ConfirmModal({
   if (!isOpen) return null;
 
   const colors = {
-    danger: 'bg-red-600 hover:bg-red-700 text-white shadow-red-200',
-    warning: 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-200',
-    info: 'bg-teal-600 hover:bg-teal-700 text-white shadow-teal-200',
+    danger: 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/20',
+    warning: 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20',
+    info: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20',
   };
 
   const iconColors = {
-    danger: 'text-red-500 bg-red-50',
-    warning: 'text-amber-500 bg-amber-50',
-    info: 'text-teal-500 bg-teal-50',
+    danger: 'text-red-600 bg-red-50 border-red-100',
+    warning: 'text-amber-600 bg-amber-50 border-amber-100',
+    info: 'text-emerald-600 bg-emerald-50 border-emerald-100',
   };
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex items-center justify-center p-4 transition-all duration-300 ${
-        show ? 'bg-black/40 backdrop-blur-[2px]' : 'bg-transparent'
+      className={`fixed inset-0 z-[200] flex items-center justify-center p-4 transition-all duration-500 ${
+        show ? 'bg-black/60 backdrop-blur-sm' : 'bg-transparent'
       }`}
       onClick={onClose}
     >
       <div
-        className={`bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all duration-300 ${
-          show ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4'
+        className={`bg-white border border-zinc-200 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all duration-500 ${
+          show ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-8'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-6">
+        <div className="p-8">
           <div className="flex justify-end mb-2">
-            <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
+            <button onClick={onClose} className="p-2 hover:bg-zinc-100 rounded-xl transition-all text-zinc-400 hover:text-zinc-700 active:scale-90">
               <XMarkIcon className="w-5 h-5" />
             </button>
           </div>
           
           <div className="flex flex-col items-center text-center">
-            <div className={`p-4 rounded-2xl mb-4 ${iconColors[type]}`}>
-              <ExclamationTriangleIcon className="w-10 h-10" />
+            <div className={`p-5 rounded-2xl mb-6 border-2 ${iconColors[type]}`}>
+              <ExclamationTriangleIcon className="w-12 h-12" />
             </div>
             
-            <h3 className="text-xl font-bold text-gray-800 mb-2">{title}</h3>
-            <p className="text-gray-500 text-sm leading-relaxed mb-8">
+            <h3 className="text-2xl font-black text-zinc-800 mb-3 tracking-tighter">{title}</h3>
+            <p className="text-zinc-500 text-sm font-bold leading-relaxed mb-10 px-2">
               {message}
             </p>
 
-            <div className="flex gap-3 w-full">
-              <button
-                onClick={onClose}
-                className="flex-1 px-4 py-3 text-gray-500 font-semibold hover:text-gray-700 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
+            <div className="flex flex-col gap-3 w-full">
+               <button
                 onClick={() => {
                   onConfirm();
                   onClose();
                 }}
-                className={`flex-1 px-6 py-3 rounded-2xl font-bold transition-all shadow-lg active:scale-95 ${colors[type]}`}
+                className={`w-full py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95 ${colors[type]}`}
               >
                 {confirmText}
+              </button>
+              <button
+                onClick={onClose}
+                className="w-full py-4 text-zinc-400 font-black text-xs uppercase tracking-widest hover:text-zinc-600 hover:bg-zinc-50 rounded-xl transition-colors"
+              >
+                CANCELAR
               </button>
             </div>
           </div>

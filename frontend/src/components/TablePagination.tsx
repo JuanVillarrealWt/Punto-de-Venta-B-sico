@@ -22,7 +22,6 @@ export default function TablePagination({
   const start = (currentPage - 1) * pageSize + 1;
   const end = Math.min(currentPage * pageSize, totalItems);
 
-  // Generate page numbers to show
   const pages = [];
   for (let i = 1; i <= totalPages; i++) {
     if (
@@ -37,47 +36,47 @@ export default function TablePagination({
   }
 
   return (
-    <div className="px-6 py-4 flex flex-col sm:flex-row items-center justify-between bg-white border-t border-gray-100 gap-4">
-      <div className="flex flex-col sm:flex-row items-center gap-4">
-        <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
-          <span>Mostrar</span>
+    <div className="px-8 py-6 flex flex-col sm:flex-row items-center justify-between bg-white border-t border-zinc-200 gap-4">
+      <div className="flex flex-col sm:flex-row items-center gap-6">
+        <div className="flex items-center gap-3 text-xs font-black text-zinc-500 bg-zinc-50 px-4 py-2 rounded-xl border border-zinc-200 uppercase tracking-widest">
+          <span>Ver</span>
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="bg-transparent font-bold text-teal-600 focus:outline-none cursor-pointer"
+            className="bg-transparent font-black text-zinc-800 focus:outline-none cursor-pointer appearance-none px-1"
           >
-            {[10, 25, 50, 100].map((size) => (
-              <option key={size} value={size}>{size}</option>
+            {[10, 15, 20, 30].map((size) => (
+              <option key={size} value={size} className="bg-white">{size}</option>
             ))}
           </select>
-          <span>filas</span>
+          <span className="opacity-40">registros</span>
         </div>
-        <p className="text-sm text-gray-600 font-medium">
-          Mostrando <span className="font-bold text-gray-800">{start}-{end}</span> de <span className="font-bold text-gray-800">{totalItems}</span>
+        <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">
+          Mostrando <span className="text-zinc-800">{start}-{end}</span> de <span className="text-zinc-800">{totalItems}</span>
         </p>
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="p-2.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl disabled:opacity-20 disabled:hover:bg-transparent transition-all"
+          className="p-3 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-xl disabled:opacity-10 disabled:hover:bg-transparent transition-all active:scale-90"
         >
-          <ChevronLeftIcon className="w-5 h-5" />
+          <ChevronLeftIcon className="w-5 h-5 stroke-2" />
         </button>
         
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           {pages.map((p, i) => (
             p === '...' ? (
-              <span key={`dots-${i}`} className="px-2 text-gray-300">...</span>
+              <span key={`dots-${i}`} className="px-2 text-zinc-400 font-black">...</span>
             ) : (
               <button
                 key={p}
                 onClick={() => onPageChange(Number(p))}
-                className={`min-w-[40px] h-10 rounded-xl text-sm font-bold transition-all ${
+                className={`min-w-[40px] h-10 rounded-xl text-xs font-black transition-all ${
                   currentPage === p
-                    ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20'
-                    : 'text-gray-500 hover:bg-gray-50'
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
+                    : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700'
                 }`}
               >
                 {p}
@@ -89,9 +88,9 @@ export default function TablePagination({
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="p-2.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl disabled:opacity-20 disabled:hover:bg-transparent transition-all"
+          className="p-3 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-xl disabled:opacity-10 disabled:hover:bg-transparent transition-all active:scale-90"
         >
-          <ChevronRightIcon className="w-5 h-5" />
+          <ChevronRightIcon className="w-5 h-5 stroke-2" />
         </button>
       </div>
     </div>

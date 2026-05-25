@@ -13,7 +13,9 @@ public class FacturaDto
     public decimal MontoIva { get; set; }
     public decimal Total { get; set; }
     public string? Observaciones { get; set; }
-    public string Estado { get; set; } = "ACTIVA";
+    public string VendedorNombre { get; set; } = string.Empty;
+    public string MetodoPagoNombre { get; set; } = string.Empty;
+    public string Estado { get; set; } = "CONFIRMADA";
     public List<FacturaDetalleDto> Detalles { get; set; } = new();
 }
 
@@ -21,6 +23,7 @@ public class FacturaDetalleDto
 {
     public int Id { get; set; }
     public int ProductoId { get; set; }
+    public string ProductoCodigo { get; set; } = string.Empty;
     public string ProductoNombre { get; set; } = string.Empty;
     public int Cantidad { get; set; }
     public decimal PrecioUnitario { get; set; }
@@ -30,6 +33,7 @@ public class FacturaDetalleDto
 public class CrearFacturaRequest
 {
     public int ClienteId { get; set; }
+    public int MetodoPagoId { get; set; }
     public decimal PorcentajeIva { get; set; } = 15;
     public string? Observaciones { get; set; }
     public List<CrearFacturaItemRequest> Items { get; set; } = new();

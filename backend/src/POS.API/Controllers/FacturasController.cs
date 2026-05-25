@@ -3,11 +3,13 @@ using Microsoft.AspNetCore.Mvc;
 using POS.Application.DTOs;
 using POS.Application.Features.Facturas.Commands;
 using POS.Application.Features.Facturas.Queries;
-
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 namespace POS.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class FacturasController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -20,7 +22,19 @@ public class FacturasController : ControllerBase
         [FromQuery] DateTime? hasta,
         [FromQuery] string? search,
         [FromQuery] string? searchBy)
-        => Ok(await _mediator.Send(new GetFacturasQuery(desde, hasta, search, searchBy)));
+    {
+        var isAdmin = User.IsInRole("Administrador");
+        int? filterUsuarioId = null;
+        if (!isAdmin)
+        {
+            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (int.TryParse(userIdStr, out int uId))
+            {
+                filterUsuarioId = uId;
+            }
+        }
+        return Ok(await _mediator.Send(new GetFacturasQuery(desde, hasta, search, searchBy, filterUsuarioId)));
+    }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<FacturaDto>> GetById(int id)
@@ -32,11 +46,16 @@ public class FacturasController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<FacturaDto>> Generar([FromBody] CrearFacturaRequest request)
     {
+        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        int.TryParse(userIdStr, out int usuarioId);
+
         var command = new GenerarFacturaCommand(
             request.ClienteId,
+            request.MetodoPagoId == 0 ? 1 : request.MetodoPagoId,
             request.PorcentajeIva,
             request.Observaciones,
-            request.Items.Select(i => new FacturaItemCommand(i.ProductoId, i.Cantidad)).ToList()
+            request.Items.Select(i => new FacturaItemCommand(i.ProductoId, i.Cantidad)).ToList(),
+            usuarioId > 0 ? usuarioId : 1
         );
 
         try
@@ -57,9 +76,12 @@ public class FacturasController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<ActionResult<FacturaDto>> Anular(int id)
     {
+        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        int.TryParse(userIdStr, out int usuarioId);
+
         try
         {
-            var result = await _mediator.Send(new AnularFacturaCommand(id));
+            var result = await _mediator.Send(new AnularFacturaCommand(id, usuarioId > 0 ? usuarioId : 1));
             return Ok(result);
         }
         catch (KeyNotFoundException ex)

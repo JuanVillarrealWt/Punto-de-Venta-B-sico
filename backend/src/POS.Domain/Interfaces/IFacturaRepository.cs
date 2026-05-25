@@ -4,7 +4,7 @@ namespace POS.Domain.Interfaces;
 
 public interface IFacturaRepository
 {
-    Task<IEnumerable<FacturaMaestro>> GetAllAsync(DateTime? desde = null, DateTime? hasta = null, string? searchCliente = null, string? searchBy = null);
+    Task<IEnumerable<FacturaMaestro>> GetAllAsync(DateTime? desde = null, DateTime? hasta = null, string? searchCliente = null, string? searchBy = null, int? usuarioId = null);
     Task<FacturaMaestro?> GetByIdAsync(int id);
     Task<FacturaMaestro?> GetByNumeroAsync(string numero);
     Task<string> GetSiguienteNumeroAsync();

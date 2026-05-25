@@ -22,15 +22,43 @@ public class AnularFacturaCommandHandler : IRequestHandler<AnularFacturaCommand,
 
     public async Task<FacturaDto> Handle(AnularFacturaCommand request, CancellationToken ct)
     {
-        // AnularAsync ya valida existencia, estado y revierte stock
-        var factura = await _uow.Facturas.AnularAsync(request.Id)
+        // 1. Obtener factura con detalles
+        var factura = await _uow.Facturas.GetByIdAsync(request.Id)
             ?? throw new KeyNotFoundException($"Factura con Id {request.Id} no encontrada.");
 
-        // Persistir todos los cambios (estado + stock) en una sola transacción
+        // 2. Anular lógicamente
+        await _uow.Facturas.AnularAsync(request.Id);
+
+        // 3. Revertir stock y registrar movimientos
+        foreach (var detalle in factura.Detalles)
+        {
+            var producto = await _uow.Productos.GetByIdAsync(detalle.ProductoId);
+            if (producto != null)
+            {
+                int stockAnterior = producto.Stock;
+                producto.Stock += detalle.Cantidad;
+                int stockNuevo = producto.Stock;
+
+                _uow.Productos.Update(producto);
+
+                // Registrar Movimiento de Stock (ENTRADA por anulación)
+                await _uow.MovimientosStock.AddAsync(new POS.Domain.Entities.MovimientoStock
+                {
+                    ProductoId = producto.Id,
+                    TipoMovimiento = "ENTRADA",
+                    Cantidad = detalle.Cantidad,
+                    StockAnterior = stockAnterior,
+                    StockNuevo = stockNuevo,
+                    Referencia = $"Anulación Factura #{factura.NumeroFactura}",
+                    Fecha = DateTime.UtcNow,
+                    UsuarioId = request.UsuarioId
+                });
+            }
+        }
+
+        // 4. Persistir todos los cambios
         await _uow.CommitAsync(ct);
 
-        // Recargar con navegaciones para devolver el DTO completo
-        var facturaCompleta = await _uow.Facturas.GetByIdAsync(factura.Id);
-        return _mapper.Map<FacturaDto>(facturaCompleta!);
+        return _mapper.Map<FacturaDto>(factura);
     }
 }

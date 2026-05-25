@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using POS.Application.DTOs;
 using POS.Application.Features.Clientes.Commands;
@@ -8,6 +9,7 @@ namespace POS.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize] // Todo el controlador requiere autenticación
 public class ClientesController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -15,8 +17,13 @@ public class ClientesController : ControllerBase
     public ClientesController(IMediator mediator) => _mediator = mediator;
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ClienteDto>>> GetAll([FromQuery] string? search, [FromQuery] string? searchBy)
-        => Ok(await _mediator.Send(new GetClientesQuery(search, searchBy)));
+    // Accesible por Administrador y Vendedor (ambos necesitan buscar clientes)
+    public async Task<ActionResult<PagedResult<ClienteDto>>> GetAll(
+        [FromQuery] string? search,
+        [FromQuery] string? searchBy,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 25)
+        => Ok(await _mediator.Send(new GetClientesQuery(search, searchBy, page, pageSize)));
 
     [HttpGet("{id}")]
     public async Task<ActionResult<ClienteDto>> GetById(int id)
@@ -26,6 +33,7 @@ public class ClientesController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Administrador,Vendedor")] // Vendedor puede crear clientes desde la caja
     public async Task<ActionResult<ClienteDto>> Create([FromBody] CreateClienteCommand command)
     {
         var result = await _mediator.Send(command);
@@ -33,6 +41,7 @@ public class ClientesController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "Administrador,Vendedor")]
     public async Task<ActionResult<ClienteDto>> Update(int id, [FromBody] UpdateClienteCommand command)
     {
         if (id != command.Id) return BadRequest("El Id no coincide.");
@@ -40,6 +49,7 @@ public class ClientesController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Administrador")] // Solo admin puede eliminar
     public async Task<ActionResult> Delete(int id)
     {
         var result = await _mediator.Send(new DeleteClienteCommand(id));
