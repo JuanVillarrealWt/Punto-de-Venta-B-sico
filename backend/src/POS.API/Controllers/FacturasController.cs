@@ -107,4 +107,18 @@ public class FacturasController : ControllerBase
             return NotFound();
         }
     }
+
+    [HttpGet("reconstruir/{numeroFactura}")]
+    public async Task<ActionResult<FacturaSnapshotDto>> Reconstruir(string numeroFactura)
+    {
+        try
+        {
+            var result = await _mediator.Send(new GetFacturaReconstruidaQuery(numeroFactura));
+            return result is null ? NotFound(new { error = $"No se encontró factura con número '{numeroFactura}'." }) : Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 }

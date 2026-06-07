@@ -19,6 +19,8 @@ export default function ProductosPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Producto | null>(null);
   const [form, setForm] = useState<ProductoForm>(emptyForm);
+  const [precioStr, setPrecioStr] = useState('0');
+  const [stockStr, setStockStr] = useState('0');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [productoToDelete, setProductoToDelete] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -51,10 +53,18 @@ export default function ProductosPage() {
   const totalPages = Math.ceil(totalItems / pageSize);
   const paginatedProductos = productos; // La API ya devuelve los paginados
 
-  const openCreate = () => { setEditing(null); setForm(emptyForm); setModalOpen(true); };
+  const openCreate = () => {
+    setEditing(null);
+    setForm(emptyForm);
+    setPrecioStr('0');
+    setStockStr('0');
+    setModalOpen(true);
+  };
   const openEdit = (p: Producto) => {
     setEditing(p);
     setForm({ codigo: p.codigo, nombre: p.nombre, descripcion: p.descripcion || '', precio: p.precio, stock: p.stock, activo: p.activo });
+    setPrecioStr(String(p.precio));
+    setStockStr(String(p.stock));
     setModalOpen(true);
   };
 
@@ -73,7 +83,12 @@ export default function ProductosPage() {
       setModalOpen(false);
       loadProductos();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Error al guardar');
+      const data = err.response?.data;
+      if (data?.isWarning) {
+        toast(data.error, { icon: '⚠️', style: { background: '#fef9c3', color: '#a16207', fontWeight: 'bold' } });
+      } else {
+        toast.error(data?.error || 'Error al guardar');
+      }
     } finally {
       setSaving(false);
     }
@@ -227,25 +242,50 @@ export default function ProductosPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="md:col-span-2">
                 <label className="block text-[10px] font-black text-zinc-800 uppercase tracking-widest mb-2">Descripción del Artículo</label>
-                <input required value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })}
+                <input required value={form.nombre}
+                  onChange={e => setForm({ ...form, nombre: e.target.value })}
                   className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" placeholder="Nombre completo..." />
               </div>
               <div>
                 <label className="block text-[10px] font-black text-zinc-800 uppercase tracking-widest mb-2">Código de Barras / Ref</label>
-                <input required value={form.codigo} onChange={e => setForm({ ...form, codigo: e.target.value })}
+                <input required value={form.codigo}
+                  onChange={e => setForm({ ...form, codigo: e.target.value })}
+                  maxLength={10}
                   className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
               </div>
               <div>
                 <label className="block text-[10px] font-black text-zinc-800 uppercase tracking-widest mb-2">Precio PVP ($)</label>
                 <div className="relative">
                   <BanknotesIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
-                  <input required type="number" step="0.01" value={form.precio} onChange={e => setForm({ ...form, precio: Number(e.target.value) })}
+                  <input
+                    required
+                    type="text"
+                    inputMode="decimal"
+                    value={precioStr}
+                    onFocus={() => { if (precioStr === '0') setPrecioStr(''); }}
+                    onBlur={() => { if (precioStr === '') { setPrecioStr('0'); setForm(f => ({ ...f, precio: 0 })); } }}
+                    onChange={e => {
+                      const v = e.target.value.replace(/[^0-9.]/g, '');
+                      setPrecioStr(v);
+                      setForm(f => ({ ...f, precio: parseFloat(v) || 0 }));
+                    }}
                     className="w-full pl-12 pr-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
                 </div>
               </div>
               <div>
                 <label className="block text-[10px] font-black text-zinc-800 uppercase tracking-widest mb-2">Stock Inicial</label>
-                <input required type="number" value={form.stock} onChange={e => setForm({ ...form, stock: Number(e.target.value) })}
+                <input
+                  required
+                  type="text"
+                  inputMode="numeric"
+                  value={stockStr}
+                  onFocus={() => { if (stockStr === '0') setStockStr(''); }}
+                  onBlur={() => { if (stockStr === '') { setStockStr('0'); setForm(f => ({ ...f, stock: 0 })); } }}
+                  onChange={e => {
+                    const v = e.target.value.replace(/[^0-9]/g, '');
+                    setStockStr(v);
+                    setForm(f => ({ ...f, stock: parseInt(v) || 0 }));
+                  }}
                   className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
               </div>
               <div className="md:col-span-2">

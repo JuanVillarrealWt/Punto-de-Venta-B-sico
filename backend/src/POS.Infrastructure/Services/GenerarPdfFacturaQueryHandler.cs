@@ -1,4 +1,7 @@
 using MediatR;
+using System.Text.Json;
+using System.Linq;
+using POS.Application.DTOs;
 using POS.Application.Features.Facturas.Queries;
 using POS.Domain.Interfaces;
 using QuestPDF.Fluent;
@@ -23,9 +26,48 @@ public class GenerarPdfFacturaQueryHandler : IRequestHandler<GenerarPdfFacturaQu
         var factura = await _uow.Facturas.GetByIdAsync(request.FacturaId)
             ?? throw new KeyNotFoundException($"Factura con Id {request.FacturaId} no encontrada.");
 
-        // Validar que tengamos datos básicos para el reporte
-        if (factura.Cliente == null)
-            throw new InvalidOperationException("No se puede generar el PDF porque la factura no tiene un cliente asociado.");
+        FacturaSnapshotDto? snapshot = null;
+        if (!string.IsNullOrWhiteSpace(factura.SnapshotJson))
+        {
+            try
+            {
+                snapshot = JsonSerializer.Deserialize<FacturaSnapshotDto>(factura.SnapshotJson);
+            }
+            catch { }
+        }
+
+        if (snapshot == null)
+        {
+            snapshot = new FacturaSnapshotDto
+            {
+                NumeroFactura = factura.NumeroFactura,
+                Fecha = factura.Fecha,
+                Subtotal = factura.Subtotal,
+                PorcentajeIva = factura.PorcentajeIva,
+                MontoIva = factura.MontoIva,
+                Total = factura.Total,
+                Observaciones = factura.Observaciones,
+                Estado = factura.Estado,
+
+                ClienteNombre = factura.Cliente?.Nombre ?? "CONSUMIDOR",
+                ClienteApellido = factura.Cliente?.Apellido ?? "FINAL",
+                ClienteIdentificacion = factura.Cliente?.Identificacion ?? "",
+                ClienteEmail = factura.Cliente?.Email,
+
+                VendedorNombre = factura.Usuario?.Nombre ?? "SISTEMA",
+                VendedorApellido = factura.Usuario?.Apellido ?? "",
+
+                MetodoPagoNombre = factura.MetodoPago?.Nombre ?? "EFECTIVO",
+
+                Detalles = factura.Detalles.Select(d => new FacturaDetalleSnapshotDto
+                {
+                    ProductoNombre = d.ProductoNombre,
+                    Cantidad = d.Cantidad,
+                    PrecioUnitario = d.PrecioUnitario,
+                    Subtotal = d.Subtotal
+                }).ToList()
+            };
+        }
 
         try
         {
@@ -49,8 +91,8 @@ public class GenerarPdfFacturaQueryHandler : IRequestHandler<GenerarPdfFacturaQu
                             });
                             row.RelativeItem().AlignRight().Column(c =>
                             {
-                                c.Item().Text($"Factura No. {factura.NumeroFactura}").FontSize(16).Bold().FontColor(Colors.White);
-                                c.Item().Text($"Fecha: {factura.Fecha:dd/MM/yyyy HH:mm}").FontSize(10).FontColor(Colors.Teal.Lighten5);
+                                c.Item().Text($"Factura No. {snapshot.NumeroFactura}").FontSize(16).Bold().FontColor(Colors.White);
+                                c.Item().Text($"Fecha: {snapshot.Fecha:dd/MM/yyyy HH:mm}").FontSize(10).FontColor(Colors.Teal.Lighten5);
                             });
                         });
                     });
@@ -63,9 +105,9 @@ public class GenerarPdfFacturaQueryHandler : IRequestHandler<GenerarPdfFacturaQu
                             row.RelativeItem().Border(1).BorderColor(Colors.Grey.Lighten2).Padding(10).Column(c =>
                             {
                                 c.Item().Text("FACTURAR A:").Bold().FontSize(9).FontColor(Colors.Teal.Darken2);
-                                c.Item().Text($"{factura.Cliente.Nombre} {factura.Cliente.Apellido}").Bold().FontSize(12);
-                                c.Item().Text($"ID: {factura.Cliente.Identificacion}").FontColor(Colors.Grey.Darken2);
-                                c.Item().Text($"Email: {factura.Cliente.Email ?? "S/N"}").FontColor(Colors.Grey.Darken2);
+                                c.Item().Text($"{snapshot.ClienteNombre} {snapshot.ClienteApellido}").Bold().FontSize(12);
+                                c.Item().Text($"ID: {snapshot.ClienteIdentificacion}").FontColor(Colors.Grey.Darken2);
+                                c.Item().Text($"Email: {snapshot.ClienteEmail ?? "S/N"}").FontColor(Colors.Grey.Darken2);
                             });
                             
                             row.ConstantItem(20); // Spacing
@@ -73,9 +115,9 @@ public class GenerarPdfFacturaQueryHandler : IRequestHandler<GenerarPdfFacturaQu
                             row.RelativeItem().Border(1).BorderColor(Colors.Grey.Lighten2).Padding(10).Column(c =>
                             {
                                 c.Item().Text("DETALLES DE LA VENTA:").Bold().FontSize(9).FontColor(Colors.Teal.Darken2);
-                                c.Item().Text($"Vendedor: {factura.Usuario?.Nombre ?? "S/S"}").FontColor(Colors.Grey.Darken3);
-                                c.Item().Text($"Método Pago: {factura.MetodoPago?.Nombre ?? "Efectivo"}").FontColor(Colors.Grey.Darken3);
-                                c.Item().Text($"Estado: {factura.Estado}").Bold().FontColor(factura.Estado == "ANULADA" ? Colors.Red.Medium : Colors.Teal.Medium);
+                                c.Item().Text($"Vendedor: {snapshot.VendedorNombre} {snapshot.VendedorApellido}").FontColor(Colors.Grey.Darken3);
+                                c.Item().Text($"Método Pago: {snapshot.MetodoPagoNombre}").FontColor(Colors.Grey.Darken3);
+                                c.Item().Text($"Estado: {snapshot.Estado}").Bold().FontColor(snapshot.Estado == "ANULADA" ? Colors.Red.Medium : Colors.Teal.Medium);
                             });
                         });
 
@@ -103,7 +145,7 @@ public class GenerarPdfFacturaQueryHandler : IRequestHandler<GenerarPdfFacturaQu
                             });
 
                             int idx = 1;
-                            foreach (var item in factura.Detalles)
+                            foreach (var item in snapshot.Detalles)
                             {
                                 var backgroundColor = idx % 2 == 0 ? Colors.Teal.Lighten5 : Colors.White;
                                 
@@ -119,12 +161,12 @@ public class GenerarPdfFacturaQueryHandler : IRequestHandler<GenerarPdfFacturaQu
                         });
 
                         // Observaciones
-                        if (!string.IsNullOrWhiteSpace(factura.Observaciones))
+                        if (!string.IsNullOrWhiteSpace(snapshot.Observaciones))
                         {
                             col.Item().PaddingTop(15).Column(c =>
                             {
                                 c.Item().Text("OBSERVACIONES:").Bold().FontSize(9).FontColor(Colors.Teal.Darken2);
-                                c.Item().Text(factura.Observaciones).FontSize(10).FontColor(Colors.Grey.Darken2);
+                                c.Item().Text(snapshot.Observaciones).FontSize(10).FontColor(Colors.Grey.Darken2);
                             });
                         }
 
@@ -137,17 +179,17 @@ public class GenerarPdfFacturaQueryHandler : IRequestHandler<GenerarPdfFacturaQu
                                 c.Item().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingBottom(5).Row(r => 
                                 {
                                     r.RelativeItem().Text("Subtotal:").Bold().FontColor(Colors.Grey.Darken2);
-                                    r.RelativeItem().AlignRight().Text($"{factura.Subtotal:C2}");
+                                    r.RelativeItem().AlignRight().Text($"{snapshot.Subtotal:C2}");
                                 });
                                 c.Item().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingVertical(5).Row(r => 
                                 {
-                                    r.RelativeItem().Text($"IVA ({factura.PorcentajeIva}%):").Bold().FontColor(Colors.Grey.Darken2);
-                                    r.RelativeItem().AlignRight().Text($"{factura.MontoIva:C2}");
+                                    r.RelativeItem().Text($"IVA ({snapshot.PorcentajeIva}%):").Bold().FontColor(Colors.Grey.Darken2);
+                                    r.RelativeItem().AlignRight().Text($"{snapshot.MontoIva:C2}");
                                 });
                                 c.Item().Background(Colors.Teal.Lighten5).Padding(10).Row(r => 
                                 {
                                     r.RelativeItem().Text("TOTAL:").FontSize(14).Bold().FontColor(Colors.Teal.Darken3);
-                                    r.RelativeItem().AlignRight().Text($"{factura.Total:C2}").FontSize(14).Bold().FontColor(Colors.Teal.Darken3);
+                                    r.RelativeItem().AlignRight().Text($"{snapshot.Total:C2}").FontSize(14).Bold().FontColor(Colors.Teal.Darken3);
                                 });
                             });
                         });

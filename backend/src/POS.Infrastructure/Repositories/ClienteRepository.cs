@@ -74,4 +74,12 @@ public class ClienteRepository : IClienteRepository
 
     public async Task<bool> HasHistoryAsync(int id) =>
         await _db.FacturasMaestro.AnyAsync(f => f.ClienteId == id);
+
+    public async Task<bool> ExisteEmailAsync(string email, int? excludeId = null)
+    {
+        var q = _db.Clientes.Where(c => c.Email == email);
+        if (excludeId.HasValue)
+            q = q.Where(c => c.Id != excludeId.Value);
+        return await q.AnyAsync();
+    }
 }

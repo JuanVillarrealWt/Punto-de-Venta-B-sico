@@ -34,6 +34,7 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
+        // ── Errores de validación FluentValidation → 400 con detalles ──────────
         if (exception is FluentValidation.ValidationException valEx)
         {
             context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
@@ -43,9 +44,51 @@ public class ExceptionMiddleware
             return;
         }
 
+        // ── Errores de negocio esperados (duplicados, unicidad) → 400 ─────────
+        // Estos son errores que el usuario puede corregir; no se registran en bitácora.
+        if (exception is InvalidOperationException)
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            var responseObj = new { error = exception.Message };
+            await context.Response.WriteAsync(JsonSerializer.Serialize(responseObj));
+            return;
+        }
+
+        // ── Errores de clave única en base de datos (SqlException) ────────────
+        // Detectamos constraint de cédula/identificación duplicada incluso si SQL Server está en español.
+        var innerMsg = exception.InnerException?.Message ?? string.Empty;
+        if (exception is Microsoft.EntityFrameworkCore.DbUpdateException &&
+            (innerMsg.Contains("UNIQUE", StringComparison.OrdinalIgnoreCase) ||
+             innerMsg.Contains("duplicate", StringComparison.OrdinalIgnoreCase) ||
+             innerMsg.Contains("duplicada", StringComparison.OrdinalIgnoreCase) ||
+             innerMsg.Contains("violation", StringComparison.OrdinalIgnoreCase) ||
+             innerMsg.Contains("infracción", StringComparison.OrdinalIgnoreCase)))
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            string friendlyMsg = "Ya existe un registro con esos datos. Verifica e inténtalo de nuevo.";
+
+            if (innerMsg.Contains("Identificacion", StringComparison.OrdinalIgnoreCase) ||
+                innerMsg.Contains("cedula", StringComparison.OrdinalIgnoreCase) ||
+                innerMsg.Contains("IX_Clientes_Identificacion", StringComparison.OrdinalIgnoreCase))
+                friendlyMsg = "La cédula ingresada ya está registrada por otro cliente. Cámbiala e inténtalo de nuevo.";
+            else if (innerMsg.Contains("email", StringComparison.OrdinalIgnoreCase) ||
+                     innerMsg.Contains("Email", StringComparison.OrdinalIgnoreCase))
+                friendlyMsg = "El correo electrónico ya está registrado. Usa otro correo e inténtalo de nuevo.";
+            else if (innerMsg.Contains("Username", StringComparison.OrdinalIgnoreCase) ||
+                     innerMsg.Contains("username", StringComparison.OrdinalIgnoreCase))
+                friendlyMsg = "El nombre de usuario ya está en uso. Elige un username diferente e inténtalo de nuevo.";
+            else if (innerMsg.Contains("Codigo", StringComparison.OrdinalIgnoreCase) ||
+                     innerMsg.Contains("codigo", StringComparison.OrdinalIgnoreCase))
+                friendlyMsg = "El código de barras ya está registrado en otro producto. Usa un código diferente.";
+
+            var responseObj = new { error = friendlyMsg, isWarning = true };
+            await context.Response.WriteAsync(JsonSerializer.Serialize(responseObj));
+            return;
+        }
+
+        // ── Error inesperado → 500 + registro en bitácora ────────────────────
         context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
-        // Log to Database using a fresh scope
         using (var scope = serviceProvider.CreateScope())
         {
             var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();

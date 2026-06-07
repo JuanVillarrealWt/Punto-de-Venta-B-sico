@@ -96,6 +96,7 @@ export default function ConsultasPage() {
         </div>
       </div>
 
+
       <div className="bg-white rounded-2xl border border-zinc-200 p-6 shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="md:col-span-2 flex gap-2 p-1.5 bg-zinc-50 border border-zinc-200 rounded-xl">

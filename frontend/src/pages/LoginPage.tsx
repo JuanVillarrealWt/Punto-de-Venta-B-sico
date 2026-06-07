@@ -17,9 +17,9 @@ export default function LoginPage() {
 
     try {
       const response = await api.post('/auth/login', { username, password });
-      const { token, refreshToken, nombre, role, username: userName } = response.data;
+      const { token, refreshToken, nombre, apellido, role, username: userName } = response.data;
       
-      setAuth({ id: 0, username: userName, nombre, role }, token, refreshToken);
+      setAuth({ id: 0, username: userName, nombre, apellido: apellido ?? '', role }, token, refreshToken);
       window.location.href = role === 'Administrador' ? '/consultas' : '/facturacion';
     } catch (err: any) {
       setError(err.response?.data?.error || 'Error de conexión con el servidor');

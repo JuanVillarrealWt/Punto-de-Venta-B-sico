@@ -26,8 +26,8 @@ public class AnularFacturaCommandHandler : IRequestHandler<AnularFacturaCommand,
         var factura = await _uow.Facturas.GetByIdAsync(request.Id)
             ?? throw new KeyNotFoundException($"Factura con Id {request.Id} no encontrada.");
 
-        // 2. Anular lógicamente
-        await _uow.Facturas.AnularAsync(request.Id);
+        // 2. Anular lógicamente delegando en el dominio
+        factura.Anular();
 
         // 3. Revertir stock y registrar movimientos
         foreach (var detalle in factura.Detalles)
@@ -36,7 +36,10 @@ public class AnularFacturaCommandHandler : IRequestHandler<AnularFacturaCommand,
             if (producto != null)
             {
                 int stockAnterior = producto.Stock;
-                producto.Stock += detalle.Cantidad;
+                
+                // Lógica de Dominio
+                producto.AumentarStock(detalle.Cantidad);
+                
                 int stockNuevo = producto.Stock;
 
                 _uow.Productos.Update(producto);

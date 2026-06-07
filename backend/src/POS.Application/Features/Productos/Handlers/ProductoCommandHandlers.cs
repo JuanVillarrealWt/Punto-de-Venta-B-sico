@@ -25,17 +25,16 @@ public class CreateProductoCommandHandler : IRequestHandler<CreateProductoComman
             Codigo = request.Codigo,
             Nombre = request.Nombre,
             Descripcion = request.Descripcion,
-            Precio = request.Precio,
-            Stock = request.Stock
+            Precio = request.Precio
         };
+        producto.EstablecerStock(request.Stock);
         await _uow.Productos.AddAsync(producto);
-        await _uow.CommitAsync(ct);
 
         if (request.Stock > 0)
         {
             await _uow.MovimientosStock.AddAsync(new MovimientoStock
             {
-                ProductoId = producto.Id,
+                Producto = producto,
                 TipoMovimiento = "ENTRADA",
                 Cantidad = request.Stock,
                 StockAnterior = 0,
@@ -44,8 +43,9 @@ public class CreateProductoCommandHandler : IRequestHandler<CreateProductoComman
                 Fecha = DateTime.UtcNow,
                 UsuarioId = request.UsuarioId ?? 1
             });
-            await _uow.CommitAsync(ct);
         }
+
+        await _uow.CommitAsync(ct);
 
         return _mapper.Map<ProductoDto>(producto);
     }
@@ -74,7 +74,7 @@ public class UpdateProductoCommandHandler : IRequestHandler<UpdateProductoComman
         producto.Nombre = request.Nombre;
         producto.Descripcion = request.Descripcion;
         producto.Precio = request.Precio;
-        producto.Stock = request.Stock;
+        producto.EstablecerStock(request.Stock);
 
         _uow.Productos.Update(producto);
 
@@ -121,7 +121,7 @@ public class DeleteProductoCommandHandler : IRequestHandler<DeleteProductoComman
         if (hasHistory)
         {
             // Soft Delete (Desactivar)
-            producto.Activo = false;
+            producto.Desactivar();
             _uow.Productos.Update(producto);
         }
         else

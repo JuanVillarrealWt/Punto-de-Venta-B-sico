@@ -183,6 +183,44 @@ export interface Factura {
   detalles: FacturaDetalle[];
 }
 
+export interface FacturaDetalleSnapshot {
+  id: number;
+  productoId: number;
+  productoCodigo: string;
+  productoNombre: string;
+  cantidad: number;
+  precioUnitario: number;
+  subtotal: number;
+}
+
+export interface FacturaSnapshot {
+  id: number;
+  numeroFactura: string;
+  fecha: string;
+  clienteId: number;
+  clienteNombre: string;
+  clienteApellido: string;
+  clienteIdentificacion: string;
+  clienteDireccion?: string;
+  clienteTelefono?: string;
+  clienteEmail?: string;
+  usuarioId: number;
+  vendedorNombre: string;
+  vendedorApellido: string;
+  vendedorUsername: string;
+  vendedorEmail?: string;
+  vendedorCedula?: string;
+  metodoPagoId: number;
+  metodoPagoNombre: string;
+  subtotal: number;
+  porcentajeIva: number;
+  montoIva: number;
+  total: number;
+  observaciones?: string;
+  estado: string;
+  detalles: FacturaDetalleSnapshot[];
+}
+
 export interface CrearFacturaRequest {
   clienteId: number;
   metodoPagoId: number;
@@ -199,6 +237,8 @@ export const facturasApi = {
   anular: (id: number) => api.delete<Factura>(`/facturas/${id}`),
   descargarPdf: (id: number) =>
     api.get(`/facturas/${id}/pdf`, { responseType: 'blob' }),
+  reconstruir: (numero: string) =>
+    api.get<FacturaSnapshot>(`/facturas/reconstruir/${numero}`),
 };
 
 let isRefreshing = false;

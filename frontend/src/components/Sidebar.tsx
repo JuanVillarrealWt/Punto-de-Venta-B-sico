@@ -75,8 +75,12 @@ export default function Sidebar() {
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full" />
           </div>
           <div className="flex-1 overflow-hidden">
-            <p className="text-sm font-black text-zinc-800 truncate" title={user?.nombre}>{user?.nombre}</p>
-            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{user?.role}</p>
+            <p className="text-sm font-black text-zinc-800 truncate leading-tight" title={`${user?.nombre} ${user?.apellido}`}>
+              {user?.nombre} {user?.apellido}
+            </p>
+            <p className="text-[11px] font-bold text-zinc-500 truncate mt-0.5">
+              @{user?.username}
+            </p>
           </div>
         </div>
         <button 

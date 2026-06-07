@@ -1,5 +1,6 @@
 using AutoMapper;
 using MediatR;
+using System.Text.Json;
 using POS.Application.DTOs;
 using POS.Application.Features.Facturas.Commands;
 using POS.Domain.Entities;
@@ -32,6 +33,14 @@ public class GenerarFacturaCommandHandler : IRequestHandler<GenerarFacturaComman
         var cliente = await _uow.Clientes.GetByIdAsync(request.ClienteId)
             ?? throw new KeyNotFoundException($"Cliente con Id {request.ClienteId} no encontrado.");
 
+        // Validar vendedor
+        var usuario = await _uow.Usuarios.GetByIdAsync(request.UsuarioId)
+            ?? throw new KeyNotFoundException($"Usuario con Id {request.UsuarioId} no encontrado.");
+
+        // Validar método de pago
+        var metodoPago = await _uow.MetodosPago.GetByIdAsync(request.MetodoPagoId)
+            ?? throw new KeyNotFoundException($"Método de pago con Id {request.MetodoPagoId} no encontrado.");
+
         // 3. Obtener número de factura correlativo
         var numeroFactura = await _uow.Facturas.GetSiguienteNumeroAsync();
 
@@ -48,25 +57,23 @@ public class GenerarFacturaCommandHandler : IRequestHandler<GenerarFacturaComman
             Estado = "CONFIRMADA"
         };
 
-        decimal subtotal = 0;
+        var detallesSnapshot = new List<FacturaDetalleSnapshotDto>();
 
-        // 5. Procesar cada item: validar stock, crear detalle, descontar inventario
+        // 5. Procesar cada item: delegar en dominio (ReducirStock, AgregarDetalle), registrar movimientos
         foreach (var item in request.Items)
         {
             var producto = await _uow.Productos.GetByIdAsync(item.ProductoId)
                 ?? throw new KeyNotFoundException($"Producto con Id {item.ProductoId} no encontrado.");
 
-            if (item.Cantidad <= 0)
-                throw new InvalidOperationException($"La cantidad debe ser mayor a 0 para el producto '{producto.Nombre}'.");
+            int stockAnterior = producto.Stock;
 
-            if (producto.Stock <= 0)
-                throw new InvalidOperationException(
-                    $"Ya no hay stock disponible para el producto '{producto.Nombre}'. Por favor, quítelo del carrito para poder continuar.");
-            else if (producto.Stock < item.Cantidad)
-                throw new InvalidOperationException(
-                    $"Stock insuficiente para '{producto.Nombre}'. Disponible: {producto.Stock}, Solicitado: {item.Cantidad}");
+            // Delegamos las validaciones matemáticas y lógicas a las entidades de dominio
+            producto.ReducirStock(item.Cantidad);
+            factura.AgregarDetalle(producto, item.Cantidad);
 
-            var detalle = new FacturaDetalle
+            int stockNuevo = producto.Stock;
+
+            detallesSnapshot.Add(new FacturaDetalleSnapshotDto
             {
                 ProductoId = producto.Id,
                 ProductoCodigo = producto.Codigo,
@@ -74,15 +81,9 @@ public class GenerarFacturaCommandHandler : IRequestHandler<GenerarFacturaComman
                 Cantidad = item.Cantidad,
                 PrecioUnitario = producto.Precio,
                 Subtotal = producto.Precio * item.Cantidad
-            };
-
-            factura.Detalles.Add(detalle);
-            subtotal += detalle.Subtotal;
+            });
 
             // Registrar Movimiento de Stock
-            int stockAnterior = producto.Stock;
-            producto.Stock -= item.Cantidad;
-            int stockNuevo = producto.Stock;
 
             _uow.Productos.Update(producto);
 
@@ -99,10 +100,43 @@ public class GenerarFacturaCommandHandler : IRequestHandler<GenerarFacturaComman
             });
         }
 
-        // 6. Calcular totales
-        factura.Subtotal = subtotal;
-        factura.MontoIva = Math.Round(subtotal * (request.PorcentajeIva / 100m), 2);
-        factura.Total = factura.Subtotal + factura.MontoIva;
+        // 6. Calcular totales mediante la entidad de dominio
+        factura.CalcularTotales();
+
+        // Construir snapshot
+        var snapshot = new FacturaSnapshotDto
+        {
+            NumeroFactura = numeroFactura,
+            Fecha = factura.Fecha,
+            Subtotal = factura.Subtotal,
+            PorcentajeIva = factura.PorcentajeIva,
+            MontoIva = factura.MontoIva,
+            Total = factura.Total,
+            Observaciones = factura.Observaciones,
+            Estado = factura.Estado,
+
+            ClienteId = cliente.Id,
+            ClienteNombre = cliente.Nombre,
+            ClienteApellido = cliente.Apellido,
+            ClienteIdentificacion = cliente.Identificacion,
+            ClienteDireccion = cliente.Direccion,
+            ClienteTelefono = cliente.Telefono,
+            ClienteEmail = cliente.Email,
+
+            UsuarioId = usuario.Id,
+            VendedorNombre = usuario.Nombre,
+            VendedorApellido = usuario.Apellido,
+            VendedorUsername = usuario.Username,
+            VendedorEmail = usuario.Email,
+            VendedorCedula = usuario.Cedula,
+
+            MetodoPagoId = metodoPago.Id,
+            MetodoPagoNombre = metodoPago.Nombre,
+
+            Detalles = detallesSnapshot
+        };
+
+        factura.SnapshotJson = JsonSerializer.Serialize(snapshot);
 
         // 7. Guardar factura
         await _uow.Facturas.AddAsync(factura);

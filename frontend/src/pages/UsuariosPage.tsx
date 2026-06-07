@@ -12,10 +12,67 @@ import {
   XCircleIcon,
   ClockIcon,
   UserIcon,
-  KeyIcon
+  KeyIcon,
+  EyeIcon,
+  EyeSlashIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
+
+// ─── Helpers de validación (frontend) ───────────────────────────────────────
+const SOLO_LETRAS   = /^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ]+$/;
+const EMAIL_REGEX   = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const USERNAME_RX   = /^[a-zA-Z0-9_]+$/;
+const capitalizeFirst = (s: string) =>
+  s.length === 0 ? '' : s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+
+interface UsuarioFormData {
+  username: string;
+  password: string;
+  confirmPassword: string;
+  nombre: string;
+  apellido: string;
+  email: string;
+  roleId: number;
+  activo: boolean;
+  bloqueado: boolean;
+}
+
+function validarCamposUsuario(data: UsuarioFormData, isEditing: boolean): Record<string, string> {
+  const err: Record<string, string> = {};
+
+  if (!data.username)
+    err.username = 'El username es requerido.';
+  else if (!USERNAME_RX.test(data.username))
+    err.username = 'Solo letras, números y guión bajo, sin espacios.';
+
+  if (!data.nombre)
+    err.nombre = 'El nombre es requerido.';
+  else if (!SOLO_LETRAS.test(data.nombre))
+    err.nombre = 'Solo letras, sin espacios ni números.';
+
+  if (!data.apellido)
+    err.apellido = 'El apellido es requerido.';
+  else if (!SOLO_LETRAS.test(data.apellido))
+    err.apellido = 'Solo letras, sin espacios ni números.';
+
+  if (!data.email)
+    err.email = 'El correo es requerido.';
+  else if (!EMAIL_REGEX.test(data.email))
+    err.email = 'Correo inválido: necesita @, punto y dominio.';
+
+  // Contraseña requerida solo al crear
+  if (!isEditing && !data.password)
+    err.password = 'La contraseña es requerida.';
+
+  return err;
+}
+
+// Componente de error inline
+function FieldError({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return <p className="text-[10px] font-bold text-red-500 mt-1 ml-1">{msg}</p>;
+}
 
 export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -25,7 +82,7 @@ export default function UsuariosPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<Usuario | null>(null);
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<UsuarioFormData>({
     username: '',
     password: '',
     confirmPassword: '',
@@ -37,7 +94,12 @@ export default function UsuariosPage() {
     bloqueado: false
   });
 
-  // Validación de complejidad de contraseña (Req. 18)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Validación de complejidad de contraseña
   const passwordRules = [
     { label: 'Mínimo 8, máximo 10 caracteres', ok: formData.password.length >= 8 && formData.password.length <= 10 },
     { label: 'Al menos una mayúscula (A-Z)', ok: /[A-Z]/.test(formData.password) },
@@ -52,7 +114,6 @@ export default function UsuariosPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Cargamos por separado para evitar que uno bloquee al otro si falla
       const uRes = await usuariosApi.getAll().catch(() => ({ data: [] }));
       const rRes = await usuariosApi.getRoles().catch(() => ({ data: [] }));
       
@@ -62,7 +123,6 @@ export default function UsuariosPage() {
       setUsuarios(userList);
       setRoles(roleList);
       
-      // Si estamos creando y hay roles, pre-seleccionar el primero
       if (!selectedUser && roleList.length > 0) {
         setFormData(prev => ({ ...prev, roleId: roleList[0].id }));
       }
@@ -93,6 +153,8 @@ export default function UsuariosPage() {
       activo: true,
       bloqueado: false
     });
+    setFieldErrors({});
+    setTouched({});
     setIsModalOpen(true);
   };
 
@@ -110,7 +172,35 @@ export default function UsuariosPage() {
       activo: u.activo ?? true,
       bloqueado: u.bloqueado ?? false
     });
+    setFieldErrors({});
+    setTouched({});
     setIsModalOpen(true);
+  };
+
+  // Manejo de cambios con filtrado de teclas
+  const handleChange = (field: keyof UsuarioFormData, value: string | number | boolean) => {
+    let sanitized = value;
+
+    if (typeof value === 'string') {
+      // Solo letras puras + primera en mayúscula en nombre y apellido
+      if (field === 'nombre' || field === 'apellido') {
+        sanitized = capitalizeFirst(value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚüÜñÑ]/g, ''));
+      }
+      // Username: sin espacios, solo alfanumérico + guión bajo
+      if (field === 'username') {
+        sanitized = value.replace(/[^a-zA-Z0-9_]/g, '');
+      }
+    }
+
+    const next = { ...formData, [field]: sanitized };
+    setFormData(next);
+    setTouched(prev => ({ ...prev, [field]: true }));
+    setFieldErrors(validarCamposUsuario(next, !!selectedUser));
+  };
+
+  const handleBlur = (field: string) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+    setFieldErrors(validarCamposUsuario(formData, !!selectedUser));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -119,7 +209,18 @@ export default function UsuariosPage() {
     if (formData.roleId === 0 && roles.length > 0) {
       return toast.error('Debe seleccionar un rol');
     }
-    // Validar contraseña al crear, o si se está cambiando al editar
+
+    // Marcar todos los campos como tocados
+    const allTouched = Object.keys(formData).reduce((acc, k) => ({ ...acc, [k]: true }), {});
+    setTouched(allTouched);
+
+    const errors = validarCamposUsuario(formData, !!selectedUser);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error('Corrige los errores antes de guardar.');
+      return;
+    }
+
     const isChangingPassword = !selectedUser || formData.password.length > 0;
     if (isChangingPassword) {
       if (!passwordValid) {
@@ -129,9 +230,9 @@ export default function UsuariosPage() {
         return toast.error('Las contraseñas no coinciden.');
       }
     }
+
     setSaving(true);
     try {
-      // No enviar confirmPassword al backend
       const { confirmPassword, ...payload } = formData;
       if (selectedUser) {
         await usuariosApi.update(selectedUser.id, { ...payload, id: selectedUser.id });
@@ -143,7 +244,12 @@ export default function UsuariosPage() {
       setIsModalOpen(false);
       loadData();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || 'No se pudo completar la acción');
+      const data = err.response?.data;
+      if (data?.isWarning) {
+        toast(data.error, { icon: '⚠️', style: { background: '#fef9c3', color: '#a16207', fontWeight: 'bold' } });
+      } else {
+        toast.error(data?.error || 'No se pudo completar la acción');
+      }
     } finally {
       setSaving(false);
     }
@@ -156,6 +262,14 @@ export default function UsuariosPage() {
       loadData();
     } catch { toast.error('No se pudo cambiar el estado'); }
   };
+
+  // Clases de input con estado de error
+  const inputClass = (field: string, extra = '') =>
+    `w-full bg-zinc-50 border px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none transition-all ${extra} ${
+      touched[field] && fieldErrors[field]
+        ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100'
+        : 'border-zinc-200 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100'
+    }`;
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-[60vh] space-y-4 text-center">
@@ -249,101 +363,161 @@ export default function UsuariosPage() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Username */}
               <div className="md:col-span-2 bg-emerald-50 p-5 rounded-xl border border-emerald-100">
-                 <div>
-                   <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Identificador (Username)</label>
-                   <div className="relative">
-                      <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-zinc-400" />
-                      <input required value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="w-full bg-white border border-zinc-200 pl-12 pr-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" placeholder="ej: admin_villarreal" />
-                   </div>
-                 </div>
+                <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Identificador (Username)</label>
+                <div className="relative">
+                  <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-zinc-400" />
+                  <input
+                    value={formData.username}
+                    onChange={e => handleChange('username', e.target.value)}
+                    onBlur={() => handleBlur('username')}
+                    className={`w-full bg-white border pl-12 pr-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none transition-all ${
+                      touched.username && fieldErrors.username
+                        ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100'
+                        : 'border-zinc-200 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100'
+                    }`}
+                    placeholder="ej: admin_villarreal"
+                  />
+                </div>
+                <FieldError msg={touched.username ? fieldErrors.username : undefined} />
               </div>
 
+              {/* Nombre */}
               <div>
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Nombre</label>
-                <input required value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} className="w-full bg-zinc-50 border border-zinc-200 px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Apellido</label>
-                <input required value={formData.apellido} onChange={e => setFormData({...formData, apellido: e.target.value})} className="w-full bg-zinc-50 border border-zinc-200 px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
+                <input
+                  value={formData.nombre}
+                  onChange={e => handleChange('nombre', e.target.value)}
+                  onBlur={() => handleBlur('nombre')}
+                  className={inputClass('nombre')}
+                  placeholder="Ej: Juan"
+                />
+                <FieldError msg={touched.nombre ? fieldErrors.nombre : undefined} />
               </div>
 
+              {/* Apellido */}
+              <div>
+                <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Apellido</label>
+                <input
+                  value={formData.apellido}
+                  onChange={e => handleChange('apellido', e.target.value)}
+                  onBlur={() => handleBlur('apellido')}
+                  className={inputClass('apellido')}
+                  placeholder="Ej: Pérez"
+                />
+                <FieldError msg={touched.apellido ? fieldErrors.apellido : undefined} />
+              </div>
+
+              {/* Email */}
               <div className="md:col-span-2">
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Correo Electrónico</label>
                 <div className="relative">
-                   <EnvelopeIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-zinc-400" />
-                   <input type="email" required value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-zinc-50 border border-zinc-200 pl-12 pr-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" placeholder="correo@ejemplo.com" />
+                  <EnvelopeIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-zinc-400" />
+                  <input
+                    type="text"
+                    value={formData.email}
+                    onChange={e => handleChange('email', e.target.value)}
+                    onBlur={() => handleBlur('email')}
+                    className={`w-full bg-zinc-50 border pl-12 pr-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none transition-all ${
+                      touched.email && fieldErrors.email
+                        ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100'
+                        : 'border-zinc-200 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100'
+                    }`}
+                    placeholder="correo@ejemplo.com"
+                  />
                 </div>
+                <FieldError msg={touched.email ? fieldErrors.email : undefined} />
               </div>
 
+              {/* Rol */}
               <div className="md:col-span-2">
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Rol de Usuario</label>
                 <div className="relative">
-                   <select value={formData.roleId} onChange={e => setFormData({...formData, roleId: Number(e.target.value)})} className="w-full bg-zinc-50 border border-zinc-200 px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all cursor-pointer appearance-none">
-                      {roles.length === 0 ? (
-                        <option value={0}>Cargando roles disponibles...</option>
-                      ) : (
-                        roles.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)
-                      )}
-                   </select>
-                   <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400 font-black">▾</div>
+                  <select
+                    value={formData.roleId}
+                    onChange={e => handleChange('roleId', Number(e.target.value))}
+                    className="w-full bg-zinc-50 border border-zinc-200 px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all cursor-pointer appearance-none"
+                  >
+                    {roles.length === 0 ? (
+                      <option value={0}>Cargando roles disponibles...</option>
+                    ) : (
+                      roles.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)
+                    )}
+                  </select>
+                  <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400 font-black">▾</div>
                 </div>
               </div>
 
+              {/* Contraseña */}
               <div className="md:col-span-2 bg-zinc-50 p-5 rounded-xl border border-zinc-200 space-y-4">
-                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block ml-1">Contraseña de Seguridad</label>
-                 <div className="relative">
+                <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block ml-1">Contraseña de Seguridad</label>
+                <div className="relative">
+                  <KeyIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required={!selectedUser}
+                    value={formData.password}
+                    onChange={e => handleChange('password', e.target.value)}
+                    className="w-full bg-white border border-zinc-200 pl-12 pr-12 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
+                    placeholder={selectedUser ? '•••••••• (dejar vacío para no cambiar)' : 'Min 8 · Max 10 · Mayús · Núm · Especial'}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(p => !p)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-emerald-600 transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeSlashIcon className="w-4.5 h-4.5" /> : <EyeIcon className="w-4.5 h-4.5" />}
+                  </button>
+                </div>
+
+                {/* Indicadores de requisitos */}
+                {(formData.password.length > 0) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {passwordRules.map((rule, i) => (
+                      <div key={i} className={`flex items-center gap-2 text-[10px] font-bold rounded-lg px-3 py-1.5 transition-all ${
+                        rule.ok ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-zinc-100 text-zinc-400 border border-zinc-200'
+                      }`}>
+                        <span className={`text-xs ${rule.ok ? 'text-emerald-600' : 'text-zinc-300'}`}>{rule.ok ? '✓' : '○'}</span>
+                        {rule.label}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Confirmar contraseña */}
+                {(formData.password.length > 0) && (
+                  <div className="relative">
                     <KeyIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
                     <input
-                      type="password"
-                      required={!selectedUser}
-                      value={formData.password}
-                      onChange={e => setFormData({...formData, password: e.target.value})}
-                      className="w-full bg-white border border-zinc-200 pl-12 pr-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
-                      placeholder={selectedUser ? '•••••••• (dejar vacío para no cambiar)' : 'Min 8 · Max 10 · Mayús · Núm · Especial'}
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={formData.confirmPassword}
+                      onChange={e => handleChange('confirmPassword', e.target.value)}
+                      className={`w-full bg-white border pl-12 pr-12 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none transition-all ${
+                        formData.confirmPassword.length > 0
+                          ? (passwordsMatch ? 'border-emerald-400 ring-2 ring-emerald-100' : 'border-red-300 ring-2 ring-red-100')
+                          : 'border-zinc-200 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100'
+                      }`}
+                      placeholder="Confirmar contraseña"
                     />
-                 </div>
-
-                 {/* Indicadores de requisitos en tiempo real */}
-                 {(formData.password.length > 0) && (
-                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                     {passwordRules.map((rule, i) => (
-                       <div key={i} className={`flex items-center gap-2 text-[10px] font-bold rounded-lg px-3 py-1.5 transition-all ${
-                         rule.ok ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-zinc-100 text-zinc-400 border border-zinc-200'
-                       }`}>
-                         <span className={`text-xs ${rule.ok ? 'text-emerald-600' : 'text-zinc-300'}`}>{rule.ok ? '✓' : '○'}</span>
-                         {rule.label}
-                       </div>
-                     ))}
-                   </div>
-                 )}
-
-                 {/* Campo confirmar contraseña */}
-                 {(formData.password.length > 0) && (
-                   <div className="relative">
-                     <KeyIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                     <input
-                       type="password"
-                       value={formData.confirmPassword}
-                       onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
-                       className={`w-full bg-white border pl-12 pr-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none transition-all ${
-                         formData.confirmPassword.length > 0
-                           ? (passwordsMatch ? 'border-emerald-400 ring-2 ring-emerald-100' : 'border-red-300 ring-2 ring-red-100')
-                           : 'border-zinc-200 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100'
-                       }`}
-                       placeholder="Confirmar contraseña"
-                     />
-                     {formData.confirmPassword.length > 0 && (
-                       <span className={`absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black ${
-                         passwordsMatch ? 'text-emerald-600' : 'text-red-500'
-                       }`}>
-                         {passwordsMatch ? '✓ Coincide' : '✗ No coincide'}
-                       </span>
-                     )}
-                   </div>
-                 )}
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(p => !p)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-emerald-600 transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showConfirmPassword ? <EyeSlashIcon className="w-4.5 h-4.5" /> : <EyeIcon className="w-4.5 h-4.5" />}
+                    </button>
+                    {formData.confirmPassword.length > 0 && (
+                      <span className={`absolute right-10 top-1/2 -translate-y-1/2 text-xs font-black ${passwordsMatch ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {passwordsMatch ? '✓ Coincide' : '✗ No coincide'}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

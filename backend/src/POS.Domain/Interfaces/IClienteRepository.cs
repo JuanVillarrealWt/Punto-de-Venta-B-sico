@@ -15,4 +15,5 @@ public interface IClienteRepository
     void Update(Cliente cliente);
     void Delete(Cliente cliente);
     Task<bool> HasHistoryAsync(int id);
+    Task<bool> ExisteEmailAsync(string email, int? excludeId = null);
 }

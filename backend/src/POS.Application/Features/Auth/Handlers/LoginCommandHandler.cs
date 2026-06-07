@@ -61,6 +61,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginResponse?>
             refreshToken, 
             usuario.Username, 
             usuario.Nombre, 
+            usuario.Apellido ?? string.Empty,
             usuario.Role?.Nombre ?? "Vendedor"
         );
     }
@@ -143,6 +144,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, L
             newRefreshToken, 
             usuario.Username, 
             usuario.Nombre, 
+            usuario.Apellido ?? string.Empty,
             usuario.Role?.Nombre ?? "Vendedor"
         );
     }

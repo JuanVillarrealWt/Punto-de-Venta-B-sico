@@ -35,6 +35,7 @@ public class POSDbContext : DbContext
             e.HasIndex(c => c.Identificacion).IsUnique();
             e.HasIndex(c => c.Nombre);
             e.HasIndex(c => c.Apellido);
+            e.HasIndex(c => c.Email);
         });
 
         // Producto
@@ -62,6 +63,7 @@ public class POSDbContext : DbContext
             e.Property(f => f.Total).HasColumnType("decimal(10,2)");
             e.Property(f => f.Observaciones).HasMaxLength(300);
             e.Property(f => f.Estado).HasMaxLength(20).IsRequired().HasDefaultValue("CONFIRMADA");
+            e.Property(f => f.SnapshotJson).IsRequired(false);
             e.HasIndex(f => f.NumeroFactura).IsUnique();
 
             e.HasOne(f => f.Cliente)
@@ -123,6 +125,7 @@ public class POSDbContext : DbContext
             e.Property(u => u.RefreshToken).HasMaxLength(200);
             e.Property(u => u.RefreshTokenExpiryTime);
             e.HasIndex(u => u.Username).IsUnique();
+            e.HasIndex(u => u.Email);
         });
 
         // MetodoPago

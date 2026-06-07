@@ -5,6 +5,7 @@ interface User {
   id: number;
   username: string;
   nombre: string;
+  apellido: string;
   role: 'Administrador' | 'Vendedor';
 }
 
