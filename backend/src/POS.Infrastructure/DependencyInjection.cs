@@ -4,21 +4,14 @@ using Microsoft.Extensions.DependencyInjection;
 using POS.Domain.Interfaces;
 using POS.Infrastructure.Data;
 
-
 namespace POS.Infrastructure;
 
 public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
-        var serverVersion = ServerVersion.AutoDetect(connectionString);
-
         services.AddDbContext<POSDbContext>(options =>
-            options.UseMySql(connectionString, serverVersion));
-
-
+            options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
