@@ -20,6 +20,8 @@ obj/
 # VS Code
 .vscode/*
 !.vscode/extensions.json
+.vs/*
+!.vs/extensions.json
 
 # Otros
 .idea

@@ -93,19 +93,7 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<POS.Infrastructure.Data.POSDbContext>();
-    db.Database.EnsureCreated();
-    
-    // Auto-alterar tabla para agregar columnas de refresh token si no existen
-    db.Database.ExecuteSqlRaw(@"
-        IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Usuarios') AND name = 'RefreshToken')
-        BEGIN
-            ALTER TABLE Usuarios ADD RefreshToken NVARCHAR(200) NULL;
-        END
-        IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Usuarios') AND name = 'RefreshTokenExpiryTime')
-        BEGIN
-            ALTER TABLE Usuarios ADD RefreshTokenExpiryTime DATETIME2(0) NULL;
-        END
-    ");
+    db.Database.Migrate();
 }
 
 app.Run();
