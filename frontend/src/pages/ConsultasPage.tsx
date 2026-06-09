@@ -5,6 +5,7 @@ import type { Factura } from '../api';
 import Modal from '../components/Modal';
 import { EyeIcon, MagnifyingGlassIcon, ClockIcon, ChevronDownIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
 import TablePagination from '../components/TablePagination';
+import { getSearchInputMode, getSearchMaxLength, getSearchPlaceholder, sanitizeSearchValue, type SearchInputKind } from '../utils/searchInput';
 
 export default function ConsultasPage() {
   const [facturas, setFacturas] = useState<Factura[]>([]);
@@ -44,6 +45,32 @@ export default function ConsultasPage() {
 
   const totalPages = Math.ceil((facturas?.length || 0) / pageSize);
   const paginatedFacturas = (facturas || []).slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const searchKind: SearchInputKind = searchEntity === 'factura'
+    ? 'documento'
+    : clienteSearchType === 'cliente_identificacion'
+      ? 'cedula'
+      : 'letras';
+
+  const getConsultasSearchKind = (entity: string, clientType: string): SearchInputKind => {
+    if (entity === 'factura') return 'documento';
+    return clientType === 'cliente_identificacion' ? 'cedula' : 'letras';
+  };
+
+  const handleSearchEntityChange = (value: string) => {
+    const nextKind = getConsultasSearchKind(value, clienteSearchType);
+    setSearchEntity(value);
+    setSearch(sanitizeSearchValue(search, nextKind));
+  };
+
+  const handleClienteSearchTypeChange = (value: string) => {
+    const nextKind = getConsultasSearchKind(searchEntity, value);
+    setClienteSearchType(value);
+    setSearch(sanitizeSearchValue(search, nextKind));
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(sanitizeSearchValue(value, searchKind));
+  };
 
   const descargarPdf = async (id: number, numero: string) => {
     try {
@@ -101,7 +128,7 @@ export default function ConsultasPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="md:col-span-2 flex gap-2 p-1.5 bg-zinc-50 border border-zinc-200 rounded-xl">
               <div className="relative">
-                <select value={searchEntity} onChange={e => setSearchEntity(e.target.value)} className="appearance-none bg-emerald-600 text-white pl-4 pr-8 py-2.5 rounded-xl text-sm font-bold outline-none cursor-pointer shadow-md shadow-emerald-600/20 h-full w-[150px]">
+                <select value={searchEntity} onChange={e => handleSearchEntityChange(e.target.value)} className="appearance-none bg-emerald-600 text-white pl-4 pr-8 py-2.5 rounded-xl text-sm font-bold outline-none cursor-pointer shadow-md shadow-emerald-600/20 h-full w-[150px]">
                   <option value="factura" className="bg-white text-zinc-800">Nº Doc</option>
                   <option value="cliente" className="bg-white text-zinc-800">Cliente</option>
                 </select>
@@ -109,7 +136,7 @@ export default function ConsultasPage() {
               </div>
               {searchEntity === 'cliente' && (
                 <div className="relative">
-                  <select value={clienteSearchType} onChange={e => setClienteSearchType(e.target.value)} className="appearance-none bg-emerald-600 text-white pl-4 pr-8 py-2.5 rounded-xl text-sm font-bold outline-none cursor-pointer shadow-md shadow-emerald-600/20 h-full w-[150px]">
+                  <select value={clienteSearchType} onChange={e => handleClienteSearchTypeChange(e.target.value)} className="appearance-none bg-emerald-600 text-white pl-4 pr-8 py-2.5 rounded-xl text-sm font-bold outline-none cursor-pointer shadow-md shadow-emerald-600/20 h-full w-[150px]">
                     <option value="cliente_identificacion" className="bg-white text-zinc-800">Cédula</option>
                     <option value="cliente_nombre" className="bg-white text-zinc-800">Nombre</option>
                     <option value="cliente_apellido" className="bg-white text-zinc-800">Apellido</option>
@@ -117,7 +144,7 @@ export default function ConsultasPage() {
                   <ChevronDownIcon className="w-3.5 h-3.5 text-white absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               )}
-              <input placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}
+              <input placeholder={getSearchPlaceholder(searchKind)} value={search} onChange={e => handleSearchChange(e.target.value)} maxLength={getSearchMaxLength(searchKind)} inputMode={getSearchInputMode(searchKind)}
                 className="flex-1 bg-transparent text-zinc-800 px-3 text-sm font-bold outline-none placeholder:text-zinc-400" />
           </div>
           <input type="date" value={desde} onChange={e => setDesde(e.target.value)} className="bg-zinc-50 border border-zinc-200 px-4 py-2 rounded-xl text-zinc-800 text-xs font-bold" />

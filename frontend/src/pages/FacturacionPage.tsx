@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useCartStore } from '../store/cartStore';
-import { facturasApi, clientesApi, MetodosPago, type Factura } from '../api';
+import { facturasApi, clientesApi, MetodosPago, type Factura, type ClienteForm } from '../api';
 import { 
   UserIcon, 
   ShoppingCartIcon, 
@@ -19,18 +19,63 @@ import { ClienteSearchModal, ProductoSearchModal } from '../components/SearchMod
 import Modal from '../components/Modal';
 import ConfirmModal from '../components/ConfirmModal';
 
+const SOLO_LETRAS = /^\p{L}+$/u;
+const EMAIL_REGEX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const CEDULA_EC = /^(0[1-9]|1[0-9]|2[0-4])\d{8}$/;
+const TELEFONO_RX = /^09\d{8}$/;
+
+const emptyNuevoClienteForm: ClienteForm = {
+  identificacion: '',
+  nombre: '',
+  apellido: '',
+  direccion: '',
+  telefono: '',
+  email: '',
+  activo: true,
+};
+
+const capitalizeFirst = (s: string) =>
+  s.length === 0 ? '' : s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+
+function validarCliente(form: ClienteForm): Record<string, string> {
+  const err: Record<string, string> = {};
+
+  if (!form.identificacion)
+    err.identificacion = 'La cedula es requerida.';
+  else if (!CEDULA_EC.test(form.identificacion))
+    err.identificacion = 'Debe ser cedula ecuatoriana (provincia 01-24, 10 digitos).';
+
+  if (!form.nombre)
+    err.nombre = 'El nombre es requerido.';
+  else if (!SOLO_LETRAS.test(form.nombre))
+    err.nombre = 'Solo letras, sin espacios ni caracteres especiales.';
+
+  if (!form.apellido)
+    err.apellido = 'El apellido es requerido.';
+  else if (!SOLO_LETRAS.test(form.apellido))
+    err.apellido = 'Solo letras, sin espacios ni caracteres especiales.';
+
+  if (form.telefono && !TELEFONO_RX.test(form.telefono))
+    err.telefono = 'Debe tener 10 digitos y empezar con 09.';
+
+  if (form.email && !EMAIL_REGEX.test(form.email))
+    err.email = 'Correo invalido: necesita @, punto y dominio.';
+
+  return err;
+}
+
+function FieldError({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return <p className="text-[10px] font-bold text-red-500 mt-1 ml-1">{msg}</p>;
+}
+
 export default function FacturacionPage() {
   const cart = useCartStore();
   const [clienteModal, setClienteModal] = useState(false);
   const [nuevoClienteModal, setNuevoClienteModal] = useState(false);
-  const [nuevoClienteForm, setNuevoClienteForm] = useState({
-    identificacion: '',
-    nombre: '',
-    apellido: '',
-    direccion: '',
-    telefono: '',
-    email: ''
-  });
+  const [nuevoClienteForm, setNuevoClienteForm] = useState<ClienteForm>(emptyNuevoClienteForm);
+  const [nuevoClienteErrors, setNuevoClienteErrors] = useState<Record<string, string>>({});
+  const [nuevoClienteTouched, setNuevoClienteTouched] = useState<Record<string, boolean>>({});
   const [productoModal, setProductoModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [savingCliente, setSavingCliente] = useState(false);
@@ -94,15 +139,23 @@ export default function FacturacionPage() {
   const handleCrearClienteRapido = async (e: React.FormEvent) => {
     e.preventDefault();
     if (savingCliente) return;
+
+    const allTouched = Object.keys(nuevoClienteForm).reduce((acc, k) => ({ ...acc, [k]: true }), {});
+    setNuevoClienteTouched(allTouched);
+
+    const errors = validarCliente(nuevoClienteForm);
+    setNuevoClienteErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error('Corrige los errores antes de guardar.');
+      return;
+    }
+
     setSavingCliente(true);
     try {
-      const { data } = await clientesApi.create({
-        ...nuevoClienteForm,
-        activo: true
-      });
+      const { data } = await clientesApi.create(nuevoClienteForm);
       cart.setCliente(data.id, `${data.nombre} ${data.apellido}`);
       setNuevoClienteModal(false);
-      setNuevoClienteForm({ identificacion: '', nombre: '', apellido: '', direccion: '', telefono: '', email: '' });
+      resetNuevoClienteForm();
       toast.success('Cliente creado y seleccionado');
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Error al crear cliente');
@@ -110,6 +163,56 @@ export default function FacturacionPage() {
       setSavingCliente(false);
     }
   };
+
+  const handleNuevoClienteChange = (field: keyof ClienteForm, value: string) => {
+    let sanitized = value;
+
+    if (field === 'identificacion' || field === 'telefono') {
+      sanitized = value.replace(/\D/g, '');
+    }
+
+    if (field === 'nombre' || field === 'apellido') {
+      sanitized = capitalizeFirst(value.replace(/[^\p{L}]/gu, ''));
+    }
+
+    if (field === 'direccion' && value.length > 0) {
+      sanitized = value.charAt(0).toUpperCase() + value.slice(1);
+    }
+
+    setNuevoClienteForm(prev => {
+      const next = { ...prev, [field]: sanitized };
+      setNuevoClienteErrors(validarCliente(next));
+      return next;
+    });
+  };
+
+  const handleNuevoClienteBlur = (field: keyof ClienteForm) => {
+    setNuevoClienteTouched(prev => ({ ...prev, [field]: true }));
+    setNuevoClienteErrors(validarCliente(nuevoClienteForm));
+  };
+
+  const resetNuevoClienteForm = () => {
+    setNuevoClienteForm(emptyNuevoClienteForm);
+    setNuevoClienteErrors({});
+    setNuevoClienteTouched({});
+  };
+
+  const closeNuevoClienteModal = () => {
+    setNuevoClienteModal(false);
+    resetNuevoClienteForm();
+  };
+
+  const openNuevoClienteModal = () => {
+    resetNuevoClienteForm();
+    setNuevoClienteModal(true);
+  };
+
+  const nuevoClienteInputClass = (field: string) =>
+    `w-full bg-zinc-50 border px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none transition-all ${
+      nuevoClienteTouched[field] && nuevoClienteErrors[field]
+        ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100'
+        : 'border-zinc-200 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100'
+    }`;
 
   return (
     <div className="space-y-6">
@@ -146,7 +249,7 @@ export default function FacturacionPage() {
             ) : (
               <>
                 <button onClick={() => setClienteModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-white text-zinc-500 border border-zinc-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-emerald-300 hover:text-emerald-600 transition-all active:scale-95"><UserIcon className="w-4 h-4" /> SELECCIONAR CLIENTE</button>
-                <button onClick={() => setNuevoClienteModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-white text-zinc-500 border border-zinc-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-emerald-300 hover:text-emerald-600 transition-all active:scale-95"><PlusIcon className="w-4 h-4" /> NUEVO CLIENTE</button>
+                <button onClick={openNuevoClienteModal} className="flex items-center gap-2 px-5 py-2.5 bg-white text-zinc-500 border border-zinc-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-emerald-300 hover:text-emerald-600 transition-all active:scale-95"><PlusIcon className="w-4 h-4" /> NUEVO CLIENTE</button>
               </>
             )}
             <button onClick={() => setProductoModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 active:scale-95"><PlusIcon className="w-4 h-4" /> AGREGAR ARTÍCULO</button>
@@ -247,11 +350,11 @@ export default function FacturacionPage() {
         isOpen={clienteModal} 
         onClose={() => setClienteModal(false)} 
         onSelect={(c) => { cart.setCliente(c.id, `${c.nombre} ${c.apellido}`); setClienteModal(false); }} 
-        onCreateNew={() => { setClienteModal(false); setNuevoClienteModal(true); }}
+        onCreateNew={() => { setClienteModal(false); openNuevoClienteModal(); }}
       />
       <ProductoSearchModal isOpen={productoModal} onClose={() => setProductoModal(false)} onSelect={(p) => { cart.addItem(p); setProductoModal(false); }} />
       
-      <Modal isOpen={nuevoClienteModal} onClose={() => setNuevoClienteModal(false)} title="REGISTRO DE CLIENTE (RÁPIDO)">
+      <Modal isOpen={nuevoClienteModal} onClose={closeNuevoClienteModal} title="REGISTRO DE CLIENTE (RÁPIDO)">
         <div className="bg-white rounded-2xl p-8 shadow-xl text-zinc-800 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -z-10 pointer-events-none transform translate-x-1/2 -translate-y-1/2"></div>
 
@@ -262,35 +365,40 @@ export default function FacturacionPage() {
             </div>
           </div>
 
-          <form onSubmit={handleCrearClienteRapido} className="space-y-5">
+          <form onSubmit={handleCrearClienteRapido} className="space-y-5" noValidate>
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Cédula / Identificación</label>
-                <input required autoFocus value={nuevoClienteForm.identificacion} onChange={e => setNuevoClienteForm({ ...nuevoClienteForm, identificacion: e.target.value })} className="w-full bg-zinc-50 border border-zinc-200 px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
+                <input autoFocus value={nuevoClienteForm.identificacion} onChange={e => handleNuevoClienteChange('identificacion', e.target.value)} onBlur={() => handleNuevoClienteBlur('identificacion')} maxLength={10} inputMode="numeric" className={nuevoClienteInputClass('identificacion')} placeholder="Ej: 0912345678" />
+                <FieldError msg={nuevoClienteTouched.identificacion ? nuevoClienteErrors.identificacion : undefined} />
               </div>
               <div>
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Nombre</label>
-                <input required value={nuevoClienteForm.nombre} onChange={e => setNuevoClienteForm({ ...nuevoClienteForm, nombre: e.target.value })} className="w-full bg-zinc-50 border border-zinc-200 px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
+                <input value={nuevoClienteForm.nombre} onChange={e => handleNuevoClienteChange('nombre', e.target.value)} onBlur={() => handleNuevoClienteBlur('nombre')} className={nuevoClienteInputClass('nombre')} placeholder="Ej: Juan" />
+                <FieldError msg={nuevoClienteTouched.nombre ? nuevoClienteErrors.nombre : undefined} />
               </div>
               <div>
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Apellido</label>
-                <input required value={nuevoClienteForm.apellido} onChange={e => setNuevoClienteForm({ ...nuevoClienteForm, apellido: e.target.value })} className="w-full bg-zinc-50 border border-zinc-200 px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
+                <input value={nuevoClienteForm.apellido} onChange={e => handleNuevoClienteChange('apellido', e.target.value)} onBlur={() => handleNuevoClienteBlur('apellido')} className={nuevoClienteInputClass('apellido')} placeholder="Ej: Perez" />
+                <FieldError msg={nuevoClienteTouched.apellido ? nuevoClienteErrors.apellido : undefined} />
               </div>
               <div>
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Teléfono</label>
-                <input value={nuevoClienteForm.telefono} onChange={e => setNuevoClienteForm({ ...nuevoClienteForm, telefono: e.target.value })} className="w-full bg-zinc-50 border border-zinc-200 px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
+                <input value={nuevoClienteForm.telefono} onChange={e => handleNuevoClienteChange('telefono', e.target.value)} onBlur={() => handleNuevoClienteBlur('telefono')} maxLength={10} inputMode="numeric" className={nuevoClienteInputClass('telefono')} placeholder="Ej: 0991234567" />
+                <FieldError msg={nuevoClienteTouched.telefono ? nuevoClienteErrors.telefono : undefined} />
               </div>
               <div>
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Correo Electrónico</label>
-                <input type="email" value={nuevoClienteForm.email} onChange={e => setNuevoClienteForm({ ...nuevoClienteForm, email: e.target.value })} className="w-full bg-zinc-50 border border-zinc-200 px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
+                <input type="text" value={nuevoClienteForm.email} onChange={e => handleNuevoClienteChange('email', e.target.value)} onBlur={() => handleNuevoClienteBlur('email')} className={nuevoClienteInputClass('email')} placeholder="Ej: correo@dominio.com" />
+                <FieldError msg={nuevoClienteTouched.email ? nuevoClienteErrors.email : undefined} />
               </div>
               <div className="col-span-2">
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Dirección</label>
-                <input value={nuevoClienteForm.direccion} onChange={e => setNuevoClienteForm({ ...nuevoClienteForm, direccion: e.target.value })} className="w-full bg-zinc-50 border border-zinc-200 px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" />
+                <input value={nuevoClienteForm.direccion} onChange={e => handleNuevoClienteChange('direccion', e.target.value)} className="w-full bg-zinc-50 border border-zinc-200 px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" placeholder="Calle, numero, sector..." />
               </div>
             </div>
             <div className="flex gap-4 pt-4 border-t-2 border-emerald-500/10">
-              <button type="button" onClick={() => setNuevoClienteModal(false)} disabled={savingCliente} className="flex-1 py-3.5 border-2 border-zinc-200 text-zinc-500 hover:bg-zinc-50 rounded-xl text-[10px] font-black uppercase transition-all disabled:opacity-50">CANCELAR</button>
+              <button type="button" onClick={closeNuevoClienteModal} disabled={savingCliente} className="flex-1 py-3.5 border-2 border-zinc-200 text-zinc-500 hover:bg-zinc-50 rounded-xl text-[10px] font-black uppercase transition-all disabled:opacity-50">CANCELAR</button>
               <button type="submit" disabled={savingCliente} className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-300 disabled:text-zinc-500 disabled:shadow-none text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-emerald-600/20 transition-all">
                 {savingCliente ? 'GUARDANDO...' : 'GUARDAR Y SELECCIONAR'}
               </button>

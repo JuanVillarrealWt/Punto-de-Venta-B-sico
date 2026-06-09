@@ -30,8 +30,6 @@ public class ProductoRepository : IProductoRepository
                 query = query.Where(p => p.Nombre.Contains(search) || p.Codigo.Contains(search));
 
             // Búsqueda: devuelve hasta 50 resultados ordenados, sin paginación pesada
-            var searchResults = await query.OrderBy(p => p.Nombre).Take(50).ToListAsync();
-            return (searchResults, searchResults.Count);
         }
 
         // Sin búsqueda: paginación del servidor

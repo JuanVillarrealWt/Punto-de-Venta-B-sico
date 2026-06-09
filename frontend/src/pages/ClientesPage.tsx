@@ -7,6 +7,7 @@ import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, UserGroupIcon, Cl
 import ConfirmModal from '../components/ConfirmModal';
 import TablePagination from '../components/TablePagination';
 import { useDebounce } from '../hooks/useDebounce';
+import { getSearchInputMode, getSearchMaxLength, getSearchPlaceholder, sanitizeSearchValue, type SearchInputKind } from '../utils/searchInput';
 
 // ─── Helpers de validación (frontend) ───────────────────────────────────────
 const SOLO_LETRAS  = /^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ]+$/; // Sin espacios en clientes
@@ -134,6 +135,17 @@ export default function ClientesPage() {
   useEffect(() => { setCurrentPage(1); }, [debouncedSearch, searchBy]);
 
   const totalPages = Math.ceil(totalItems / pageSize);
+  const searchKind: SearchInputKind = searchBy === 'identificacion' ? 'cedula' : 'letras';
+
+  const handleSearchByChange = (value: string) => {
+    const nextKind: SearchInputKind = value === 'identificacion' ? 'cedula' : 'letras';
+    setSearchBy(value);
+    setSearch(sanitizeSearchValue(search, nextKind));
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(sanitizeSearchValue(value, searchKind));
+  };
 
   const openCreate = useCallback(() => {
     setEditing(null);
@@ -267,7 +279,7 @@ export default function ClientesPage() {
 
       <div className="bg-white p-1.5 border border-zinc-200 rounded-2xl flex items-center gap-2 shadow-sm">
         <div className="relative">
-          <select value={searchBy} onChange={e => setSearchBy(e.target.value)} className="appearance-none bg-emerald-600 text-white pl-4 pr-8 py-2.5 rounded-xl text-sm font-bold outline-none cursor-pointer shadow-md shadow-emerald-600/20 w-[150px]">
+          <select value={searchBy} onChange={e => handleSearchByChange(e.target.value)} className="appearance-none bg-emerald-600 text-white pl-4 pr-8 py-2.5 rounded-xl text-sm font-bold outline-none cursor-pointer shadow-md shadow-emerald-600/20 w-[150px]">
             <option value="identificacion" className="bg-white text-zinc-800">Cédula</option>
             <option value="nombre" className="bg-white text-zinc-800">Nombre</option>
             <option value="apellido" className="bg-white text-zinc-800">Apellido</option>
@@ -278,9 +290,11 @@ export default function ClientesPage() {
           <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
           <input
             type="text"
-            placeholder="Buscar..."
+            placeholder={getSearchPlaceholder(searchKind)}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            maxLength={getSearchMaxLength(searchKind)}
+            inputMode={getSearchInputMode(searchKind)}
             className="w-full pl-12 pr-4 py-2.5 bg-transparent text-zinc-800 text-sm font-bold placeholder:text-zinc-400 outline-none"
           />
         </div>
@@ -416,4 +430,3 @@ export default function ClientesPage() {
     </div>
   );
 }
-

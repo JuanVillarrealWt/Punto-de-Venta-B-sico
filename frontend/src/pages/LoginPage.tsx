@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { BuildingStorefrontIcon, LockClosedIcon, UserIcon } from '@heroicons/react/24/outline';
+import { BuildingStorefrontIcon, EyeIcon, EyeSlashIcon, LockClosedIcon, UserIcon } from '@heroicons/react/24/outline';
 import api from '../api';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const setAuth = useAuthStore(state => state.setAuth);
@@ -75,12 +76,21 @@ export default function LoginPage() {
               <LockClosedIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
               <input 
                 required
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-800 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 outline-none transition-all placeholder:text-zinc-400 font-medium"
+                className="w-full pl-12 pr-12 py-4 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-800 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 outline-none transition-all placeholder:text-zinc-400 font-medium"
                 placeholder="••••••••"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(prev => !prev)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-emerald-600 transition-colors"
+                aria-label={showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+                title={showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+              >
+                {showPassword ? <EyeSlashIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+              </button>
             </div>
           </div>
 

@@ -6,6 +6,7 @@ import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, CubeIcon, Banknot
 import ConfirmModal from '../components/ConfirmModal';
 import TablePagination from '../components/TablePagination';
 import { useDebounce } from '../hooks/useDebounce';
+import { getSearchInputMode, getSearchMaxLength, getSearchPlaceholder, sanitizeSearchValue, type SearchInputKind } from '../utils/searchInput';
 
 const emptyForm: ProductoForm = { codigo: '', nombre: '', descripcion: '', precio: 0, stock: 0, activo: true };
 
@@ -52,6 +53,17 @@ export default function ProductosPage() {
 
   const totalPages = Math.ceil(totalItems / pageSize);
   const paginatedProductos = productos; // La API ya devuelve los paginados
+  const searchKind: SearchInputKind = searchBy === 'codigo' ? 'codigo' : 'producto';
+
+  const handleSearchByChange = (value: string) => {
+    const nextKind: SearchInputKind = value === 'codigo' ? 'codigo' : 'producto';
+    setSearchBy(value);
+    setSearch(sanitizeSearchValue(search, nextKind));
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(sanitizeSearchValue(value, searchKind));
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -146,7 +158,7 @@ export default function ProductosPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="md:col-span-3 bg-white p-1.5 border border-zinc-200 rounded-2xl flex items-center gap-2 shadow-sm">
            <div className="relative">
-             <select value={searchBy} onChange={e => setSearchBy(e.target.value)} className="appearance-none bg-emerald-600 text-white pl-4 pr-8 py-2.5 rounded-xl text-sm font-bold outline-none cursor-pointer shadow-md shadow-emerald-600/20 w-[150px]">
+             <select value={searchBy} onChange={e => handleSearchByChange(e.target.value)} className="appearance-none bg-emerald-600 text-white pl-4 pr-8 py-2.5 rounded-xl text-sm font-bold outline-none cursor-pointer shadow-md shadow-emerald-600/20 w-[150px]">
                <option value="codigo" className="bg-white text-zinc-800">Código</option>
                <option value="nombre" className="bg-white text-zinc-800">Nombre</option>
              </select>
@@ -156,9 +168,11 @@ export default function ProductosPage() {
              <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" />
              <input
                 type="text"
-                placeholder="Buscar..."
+                placeholder={getSearchPlaceholder(searchKind)}
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                maxLength={getSearchMaxLength(searchKind)}
+                inputMode={getSearchInputMode(searchKind)}
                 className="w-full pl-12 pr-4 py-2.5 bg-transparent text-zinc-800 text-sm font-bold placeholder:text-zinc-400 outline-none"
               />
            </div>

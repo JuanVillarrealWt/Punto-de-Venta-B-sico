@@ -3,6 +3,8 @@ import { clientesApi, productosApi, type Cliente, type Producto } from '../api';
 import Modal from './Modal';
 import { MagnifyingGlassIcon, ArchiveBoxIcon, PlusIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import { useDebounce } from '../hooks/useDebounce';
+import TablePagination from './TablePagination';
+import { getSearchInputMode, getSearchMaxLength, getSearchPlaceholder, sanitizeSearchValue, type SearchInputKind } from '../utils/searchInput';
 
 interface SearchModalProps<T> {
   isOpen: boolean;
@@ -17,26 +19,45 @@ export function ClienteSearchModal({ isOpen, onClose, onSelect, onCreateNew }: S
   const [searchBy, setSearchBy] = useState('identificacion');
   const [results, setResults] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
 
   useEffect(() => {
     if (!isOpen) return;
     const load = async () => {
       setLoading(true);
       try {
-        const { data } = await clientesApi.getAll(debouncedSearch || undefined, searchBy, 1, 50);
+        const { data } = await clientesApi.getAll(debouncedSearch || undefined, searchBy, currentPage, pageSize);
         setResults(data.items || []);
+        setTotalItems(data.totalCount || 0);
       } catch {}
       setLoading(false);
     };
     load();
-  }, [debouncedSearch, searchBy, isOpen]);
+  }, [debouncedSearch, searchBy, isOpen, currentPage, pageSize]);
+
+  useEffect(() => { setCurrentPage(1); }, [debouncedSearch, searchBy, pageSize, isOpen]);
+
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const searchKind: SearchInputKind = searchBy === 'identificacion' ? 'cedula' : 'letras';
+
+  const handleSearchByChange = (value: string) => {
+    const nextKind: SearchInputKind = value === 'identificacion' ? 'cedula' : 'letras';
+    setSearchBy(value);
+    setSearch(sanitizeSearchValue(search, nextKind));
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(sanitizeSearchValue(value, searchKind));
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="BÚSQUEDA DE CLIENTES">
       <div className="space-y-4">
         <div className="flex gap-2">
           <div className="relative">
-            <select value={searchBy} onChange={e => setSearchBy(e.target.value)} className="appearance-none bg-emerald-600 text-white pl-4 pr-8 py-2.5 rounded-xl text-sm font-bold outline-none cursor-pointer h-full shadow-md shadow-emerald-600/20 w-[150px]">
+            <select value={searchBy} onChange={e => handleSearchByChange(e.target.value)} className="appearance-none bg-emerald-600 text-white pl-4 pr-8 py-2.5 rounded-xl text-sm font-bold outline-none cursor-pointer h-full shadow-md shadow-emerald-600/20 w-[150px]">
               <option value="identificacion" className="bg-white text-zinc-800">Cédula</option>
               <option value="nombre" className="bg-white text-zinc-800">Nombre</option>
               <option value="apellido" className="bg-white text-zinc-800">Apellido</option>
@@ -45,7 +66,7 @@ export function ClienteSearchModal({ isOpen, onClose, onSelect, onCreateNew }: S
           </div>
           <div className="relative flex-1">
             <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
-            <input autoFocus placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}
+            <input autoFocus placeholder={getSearchPlaceholder(searchKind)} value={search} onChange={e => handleSearchChange(e.target.value)} maxLength={getSearchMaxLength(searchKind)} inputMode={getSearchInputMode(searchKind)}
               className="w-full pl-12 pr-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" />
           </div>
         </div>
@@ -71,6 +92,16 @@ export function ClienteSearchModal({ isOpen, onClose, onSelect, onCreateNew }: S
             </div>
           )}
         </div>
+        <div className="border border-zinc-200 rounded-2xl overflow-hidden">
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            pageSize={pageSize}
+            onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+            totalItems={totalItems}
+          />
+        </div>
       </div>
     </Modal>
   );
@@ -82,26 +113,45 @@ export function ProductoSearchModal({ isOpen, onClose, onSelect }: SearchModalPr
   const [searchBy, setSearchBy] = useState('codigo');
   const [results, setResults] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
 
   useEffect(() => {
     if (!isOpen) return;
     const load = async () => {
       setLoading(true);
       try {
-        const { data } = await productosApi.getAll(debouncedSearch || undefined, searchBy, 1, 50);
+        const { data } = await productosApi.getAll(debouncedSearch || undefined, searchBy, currentPage, pageSize);
         setResults((data.items || []).filter(p => p.activo && p.stock > 0));
+        setTotalItems(data.totalCount || 0);
       } catch {}
       setLoading(false);
     };
     load();
-  }, [debouncedSearch, searchBy, isOpen]);
+  }, [debouncedSearch, searchBy, isOpen, currentPage, pageSize]);
+
+  useEffect(() => { setCurrentPage(1); }, [debouncedSearch, searchBy, pageSize, isOpen]);
+
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const searchKind: SearchInputKind = searchBy === 'codigo' ? 'codigo' : 'producto';
+
+  const handleSearchByChange = (value: string) => {
+    const nextKind: SearchInputKind = value === 'codigo' ? 'codigo' : 'producto';
+    setSearchBy(value);
+    setSearch(sanitizeSearchValue(search, nextKind));
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(sanitizeSearchValue(value, searchKind));
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="BÚSQUEDA DE ARTÍCULOS">
       <div className="space-y-4">
         <div className="flex gap-2">
           <div className="relative">
-            <select value={searchBy} onChange={e => setSearchBy(e.target.value)} className="appearance-none bg-emerald-600 text-white pl-4 pr-8 py-2.5 rounded-xl text-sm font-bold outline-none cursor-pointer h-full shadow-md shadow-emerald-600/20 w-[150px]">
+            <select value={searchBy} onChange={e => handleSearchByChange(e.target.value)} className="appearance-none bg-emerald-600 text-white pl-4 pr-8 py-2.5 rounded-xl text-sm font-bold outline-none cursor-pointer h-full shadow-md shadow-emerald-600/20 w-[150px]">
               <option value="codigo" className="bg-white text-zinc-800">Código</option>
               <option value="nombre" className="bg-white text-zinc-800">Nombre</option>
             </select>
@@ -109,7 +159,7 @@ export function ProductoSearchModal({ isOpen, onClose, onSelect }: SearchModalPr
           </div>
           <div className="relative flex-1">
             <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
-            <input autoFocus placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)}
+            <input autoFocus placeholder={getSearchPlaceholder(searchKind)} value={search} onChange={e => handleSearchChange(e.target.value)} maxLength={getSearchMaxLength(searchKind)} inputMode={getSearchInputMode(searchKind)}
               className="w-full pl-12 pr-4 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100" />
           </div>
         </div>
@@ -135,6 +185,16 @@ export function ProductoSearchModal({ isOpen, onClose, onSelect }: SearchModalPr
             </button>
           ))}
           {!loading && results.length === 0 && search && <p className="text-center py-8 text-zinc-400 text-xs font-black uppercase">Producto no encontrado</p>}
+        </div>
+        <div className="border border-zinc-200 rounded-2xl overflow-hidden">
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            pageSize={pageSize}
+            onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+            totalItems={totalItems}
+          />
         </div>
       </div>
     </Modal>

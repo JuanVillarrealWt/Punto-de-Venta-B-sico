@@ -34,11 +34,6 @@ public class ClienteRepository : IClienteRepository
                     c.Apellido.Contains(search) ||
                     c.Identificacion.Contains(search));
 
-            var searchResults = await query
-                .OrderBy(c => c.Apellido).ThenBy(c => c.Nombre)
-                .Take(50)
-                .ToListAsync();
-            return (searchResults, searchResults.Count);
         }
 
         // Sin búsqueda: paginación del servidor
