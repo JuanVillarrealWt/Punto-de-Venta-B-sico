@@ -21,6 +21,7 @@ import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
 import ConfirmModal from '../components/ConfirmModal';
 import { useAuthStore } from '../store/authStore';
+import { FIELD_LENGTHS } from '../utils/fieldLengths';
 
 // ─── Helpers de validación (frontend) ───────────────────────────────────────
 const SOLO_LETRAS   = /^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ]+$/;
@@ -73,7 +74,7 @@ function validarCamposUsuario(data: UsuarioFormData, isEditing: boolean): Record
 
   // Contraseña requerida solo al crear
   if (!isEditing && !data.password)
-    err.password = 'La contraseña es requerida.';
+    err.password = 'Ponga una contraseña para crear el usuario.';
 
   return err;
 }
@@ -242,6 +243,12 @@ export default function UsuariosPage() {
       if (field === 'username') {
         sanitized = value.replace(/[^a-zA-Z0-9_]/g, '');
       }
+      if (field === 'password' || field === 'confirmPassword') {
+        sanitized = value.slice(0, FIELD_LENGTHS.password);
+      }
+      if (field === 'email') {
+        sanitized = value.slice(0, FIELD_LENGTHS.email);
+      }
     }
 
     const next = { ...formData, [field]: sanitized };
@@ -373,9 +380,11 @@ export default function UsuariosPage() {
               </div>
               <div className="flex gap-2">
                 <button onClick={() => openEdit(u)} className="p-3 text-zinc-400 hover:text-emerald-600 bg-zinc-50 rounded-xl border border-zinc-200 hover:border-emerald-200 hover:bg-emerald-50 transition-all"><PencilSquareIcon className="w-4.5 h-4.5" /></button>
-                <button onClick={() => u?.id && handleToggleBloqueo(u.id)} className={`p-3 transition-all rounded-xl border ${u?.bloqueado ? 'bg-red-50 text-red-600 border-red-200' : 'bg-zinc-50 text-zinc-400 hover:text-red-600 border-zinc-200 hover:border-red-200 hover:bg-red-50'}`}>
-                  {u?.bloqueado ? <LockClosedIcon className="w-4.5 h-4.5" /> : <LockOpenIcon className="w-4.5 h-4.5" />}
-                </button>
+                {currentUser?.id !== u?.id && (
+                  <button onClick={() => u?.id && handleToggleBloqueo(u.id)} className={`p-3 transition-all rounded-xl border ${u?.bloqueado ? 'bg-red-50 text-red-600 border-red-200' : 'bg-zinc-50 text-zinc-400 hover:text-red-600 border-zinc-200 hover:border-red-200 hover:bg-red-50'}`}>
+                    {u?.bloqueado ? <LockClosedIcon className="w-4.5 h-4.5" /> : <LockOpenIcon className="w-4.5 h-4.5" />}
+                  </button>
+                )}
                 {u?.roleNombre !== 'Administrador' && currentUser?.id !== u?.id && (
                   <button onClick={() => requestDelete(u)} className="p-3 text-zinc-400 hover:text-red-600 bg-zinc-50 rounded-xl border border-zinc-200 hover:border-red-200 hover:bg-red-50 transition-all">
                     <TrashIcon className="w-4.5 h-4.5" />
@@ -431,6 +440,7 @@ export default function UsuariosPage() {
                     value={formData.username}
                     onChange={e => handleChange('username', e.target.value)}
                     onBlur={() => handleBlur('username')}
+                    maxLength={FIELD_LENGTHS.username}
                     className={`w-full bg-white border pl-12 pr-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none transition-all ${
                       touched.username && fieldErrors.username
                         ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100'
@@ -444,11 +454,11 @@ export default function UsuariosPage() {
 
               <div className="md:col-span-2">
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Cédula</label>
-                <input
-                  value={formData.cedula}
-                  onChange={e => handleChange('cedula', e.target.value)}
-                  onBlur={() => handleBlur('cedula')}
-                  maxLength={10}
+                  <input
+                    value={formData.cedula}
+                    onChange={e => handleChange('cedula', e.target.value)}
+                    onBlur={() => handleBlur('cedula')}
+                  maxLength={FIELD_LENGTHS.cedula}
                   inputMode="numeric"
                   className={inputClass('cedula')}
                   placeholder="Ej: 1802288996"
@@ -459,11 +469,12 @@ export default function UsuariosPage() {
               {/* Nombre */}
               <div>
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Nombre</label>
-                <input
-                  value={formData.nombre}
-                  onChange={e => handleChange('nombre', e.target.value)}
-                  onBlur={() => handleBlur('nombre')}
-                  className={inputClass('nombre')}
+                  <input
+                    value={formData.nombre}
+                    onChange={e => handleChange('nombre', e.target.value)}
+                    onBlur={() => handleBlur('nombre')}
+                    maxLength={FIELD_LENGTHS.nombrePersona}
+                    className={inputClass('nombre')}
                   placeholder="Ej: Juan"
                 />
                 <FieldError msg={touched.nombre ? fieldErrors.nombre : undefined} />
@@ -472,11 +483,12 @@ export default function UsuariosPage() {
               {/* Apellido */}
               <div>
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Apellido</label>
-                <input
-                  value={formData.apellido}
-                  onChange={e => handleChange('apellido', e.target.value)}
-                  onBlur={() => handleBlur('apellido')}
-                  className={inputClass('apellido')}
+                  <input
+                    value={formData.apellido}
+                    onChange={e => handleChange('apellido', e.target.value)}
+                    onBlur={() => handleBlur('apellido')}
+                    maxLength={FIELD_LENGTHS.apellidoPersona}
+                    className={inputClass('apellido')}
                   placeholder="Ej: Pérez"
                 />
                 <FieldError msg={touched.apellido ? fieldErrors.apellido : undefined} />
@@ -492,6 +504,7 @@ export default function UsuariosPage() {
                     value={formData.email}
                     onChange={e => handleChange('email', e.target.value)}
                     onBlur={() => handleBlur('email')}
+                    maxLength={FIELD_LENGTHS.email}
                     className={`w-full bg-zinc-50 border pl-12 pr-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none transition-all ${
                       touched.email && fieldErrors.email
                         ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100'
@@ -532,6 +545,7 @@ export default function UsuariosPage() {
                     required={!selectedUser}
                     value={formData.password}
                     onChange={e => handleChange('password', e.target.value)}
+                    maxLength={FIELD_LENGTHS.password}
                     className="w-full bg-white border border-zinc-200 pl-12 pr-12 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
                     placeholder={selectedUser ? '•••••••• (dejar vacío para no cambiar)' : 'Min 8 · Max 10 · Mayús · Núm · Especial'}
                   />
@@ -544,6 +558,15 @@ export default function UsuariosPage() {
                     {showPassword ? <EyeSlashIcon className="w-4.5 h-4.5" /> : <EyeIcon className="w-4.5 h-4.5" />}
                   </button>
                 </div>
+
+                {!selectedUser && (
+                  <p className="text-[10px] font-bold text-zinc-500 ml-1">
+                    Ponga una contraseña de 8 a 10 caracteres con mayúscula, minúscula, número y símbolo.
+                  </p>
+                )}
+                {!selectedUser && touched.password && fieldErrors.password && (
+                  <FieldError msg={fieldErrors.password} />
+                )}
 
                 {/* Indicadores de requisitos */}
                 {(formData.password.length > 0) && (
@@ -567,6 +590,7 @@ export default function UsuariosPage() {
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={formData.confirmPassword}
                       onChange={e => handleChange('confirmPassword', e.target.value)}
+                      maxLength={FIELD_LENGTHS.password}
                       className={`w-full bg-white border pl-12 pr-12 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none transition-all ${
                         formData.confirmPassword.length > 0
                           ? (passwordsMatch ? 'border-emerald-400 ring-2 ring-emerald-100' : 'border-red-300 ring-2 ring-red-100')

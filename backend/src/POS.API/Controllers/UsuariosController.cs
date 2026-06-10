@@ -41,6 +41,13 @@ public class UsuariosController : ControllerBase
     [HttpPost("{id}/toggle-bloqueo")]
     public async Task<IActionResult> ToggleBloqueo(int id)
     {
+        var currentUserIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(currentUserIdValue, out var currentUserId))
+            return Forbid();
+
+        if (currentUserId == id)
+            return BadRequest(new { error = "No puedes bloquear tu propia cuenta." });
+
         var result = await _mediator.Send(new ToggleBloqueoCommand(id));
         return result ? Ok() : NotFound();
     }

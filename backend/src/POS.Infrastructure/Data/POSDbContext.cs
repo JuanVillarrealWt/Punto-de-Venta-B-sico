@@ -128,6 +128,7 @@ public class POSDbContext : DbContext
             e.HasIndex(u => u.Username).IsUnique();
             e.HasIndex(u => u.Cedula).IsUnique();
             e.HasIndex(u => u.Email).IsUnique();
+            e.HasQueryFilter(u => u.Activo);
         });
 
         // MetodoPago

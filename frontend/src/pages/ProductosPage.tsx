@@ -7,11 +7,11 @@ import ConfirmModal from '../components/ConfirmModal';
 import TablePagination from '../components/TablePagination';
 import { useDebounce } from '../hooks/useDebounce';
 import { getSearchInputMode, getSearchMaxLength, getSearchPlaceholder, sanitizeSearchValue, type SearchInputKind } from '../utils/searchInput';
+import { FIELD_LENGTHS } from '../utils/fieldLengths';
 
 const emptyForm: ProductoForm = { codigo: '', nombre: '', descripcion: '', precio: 0, stock: 0, activo: true };
 const MAX_PRECIO = 999.99;
 const MAX_STOCK = 999;
-const MAX_CODIGO_LENGTH = 10;
 const capitalizeFirst = (s: string) => s.length === 0 ? '' : s.charAt(0).toUpperCase() + s.slice(1);
 
 function validarCampos(form: ProductoForm): Record<string, string> {
@@ -22,6 +22,7 @@ function validarCampos(form: ProductoForm): Record<string, string> {
   if (!(form.precio > 0)) errors.precio = 'El precio debe ser mayor a 0.';
   else if (form.precio > MAX_PRECIO) errors.precio = `El precio no puede superar ${MAX_PRECIO.toFixed(2)}.`;
   if (!Number.isInteger(form.stock) || form.stock < 0) errors.stock = 'El stock no puede ser negativo.';
+  else if (form.stock === 0) errors.stock = 'El stock debe ser mayor a 0.';
   else if (form.stock > MAX_STOCK) errors.stock = `El stock no puede superar ${MAX_STOCK}.`;
 
   return errors;
@@ -31,6 +32,13 @@ function FieldError({ msg }: { msg?: string }) {
   if (!msg) return null;
   return <p className="text-[10px] font-bold text-red-500 mt-1 ml-1">{msg}</p>;
 }
+
+const inputClass = (field: string, touched: Record<string, boolean>, fieldErrors: Record<string, string>, extra = '') =>
+  `w-full bg-zinc-50 border px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none transition-all ${extra} ${
+    touched[field] && fieldErrors[field]
+      ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100'
+      : 'border-zinc-200 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100'
+  }`;
 
 export default function ProductosPage() {
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -78,10 +86,10 @@ export default function ProductosPage() {
 
   const totalPages = Math.ceil(totalItems / pageSize);
   const paginatedProductos = productos; // La API ya devuelve los paginados
-  const searchKind: SearchInputKind = searchBy === 'codigo' ? 'codigo' : 'producto';
+  const searchKind: SearchInputKind = searchBy === 'codigo' ? 'producto_codigo' : 'producto';
 
   const handleSearchByChange = (value: string) => {
-    const nextKind: SearchInputKind = value === 'codigo' ? 'codigo' : 'producto';
+    const nextKind: SearchInputKind = value === 'codigo' ? 'producto_codigo' : 'producto';
     setSearchBy(value);
     setSearch(sanitizeSearchValue(search, nextKind));
   };
@@ -93,8 +101,11 @@ export default function ProductosPage() {
   const handleFormChange = (field: keyof ProductoForm, value: string | number | boolean) => {
     if (field === 'nombre' || field === 'descripcion') {
       const text = typeof value === 'string' ? value : '';
-      setForm(prev => ({ ...prev, [field]: capitalizeFirst(text) }));
-      setFieldErrors(validarCampos({ ...form, [field]: capitalizeFirst(text) }));
+      const limited = field === 'nombre'
+        ? text.slice(0, FIELD_LENGTHS.productoNombre)
+        : text.slice(0, FIELD_LENGTHS.productoDescripcion);
+      setForm(prev => ({ ...prev, [field]: capitalizeFirst(limited) }));
+      setFieldErrors(validarCampos({ ...form, [field]: capitalizeFirst(limited) }));
       return;
     }
     setForm(prev => ({ ...prev, [field]: value as never }));
@@ -345,14 +356,15 @@ export default function ProductosPage() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="md:col-span-2">
                 <label className="block text-[10px] font-black text-zinc-800 uppercase tracking-widest mb-2">Nombre del producto</label>
                 <input required value={form.nombre}
                   onChange={e => handleFormChange('nombre', e.target.value)}
                   onBlur={() => handleBlur('nombre')}
-                  className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" placeholder="Ej: Arroz 1kg" />
+                  maxLength={FIELD_LENGTHS.productoNombre}
+                  className={inputClass('nombre', touched, fieldErrors)} placeholder="Ej: Arroz 1kg" />
                 <FieldError msg={touched.nombre ? fieldErrors.nombre : undefined} />
               </div>
               <div>
@@ -360,8 +372,8 @@ export default function ProductosPage() {
                 <input required value={form.codigo}
                   onChange={e => handleFormChange('codigo', e.target.value)}
                   onBlur={() => handleBlur('codigo')}
-                  maxLength={MAX_CODIGO_LENGTH}
-                  className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" placeholder="Ej: 1234567890" />
+                  maxLength={FIELD_LENGTHS.codigo}
+                  className={inputClass('codigo', touched, fieldErrors)} placeholder="Ej: 1234567890" />
                 <FieldError msg={touched.codigo ? fieldErrors.codigo : undefined} />
               </div>
               <div>
@@ -374,7 +386,7 @@ export default function ProductosPage() {
                     inputMode="decimal"
                     value={precioStr}
                     onFocus={() => { if (precioStr === '0') setPrecioStr(''); }}
-                    onBlur={() => {
+                  onBlur={() => {
                       if (precioStr === '') {
                         setPrecioStr('0');
                         setForm(f => ({ ...f, precio: 0 }));
@@ -383,7 +395,7 @@ export default function ProductosPage() {
                     }}
                     onChange={e => handlePrecioChange(e.target.value)}
                     maxLength={6}
-                    className="w-full pl-12 pr-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" placeholder="Ej: 1.25" />
+                    className={inputClass('precio', touched, fieldErrors, 'pl-12 pr-5')} placeholder="Ej: 1.25" />
                 </div>
                 <FieldError msg={touched.precio ? fieldErrors.precio : undefined} />
               </div>
@@ -404,13 +416,13 @@ export default function ProductosPage() {
                   }}
                   onChange={e => handleStockChange(e.target.value)}
                   maxLength={3}
-                  className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" placeholder="Ej: 50" />
+                  className={inputClass('stock', touched, fieldErrors)} placeholder="Ej: 50" />
                 <FieldError msg={touched.stock ? fieldErrors.stock : undefined} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-[10px] font-black text-zinc-800 uppercase tracking-widest mb-2">Descripción Detallada</label>
-                <textarea value={form.descripcion} onChange={e => handleFormChange('descripcion', e.target.value)} onBlur={() => handleBlur('descripcion')}
-                  className="w-full px-5 py-3.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all resize-none h-24" placeholder="Ej: Producto de 1 kilogramo" />
+                <textarea value={form.descripcion} onChange={e => handleFormChange('descripcion', e.target.value)} onBlur={() => handleBlur('descripcion')} maxLength={FIELD_LENGTHS.productoDescripcion}
+                  className={inputClass('descripcion', touched, fieldErrors, 'resize-none h-24')} placeholder="Ej: Producto de 1 kilogramo" />
               </div>
             </div>
             <div className="flex gap-4 pt-4 border-t-2 border-emerald-500/10">

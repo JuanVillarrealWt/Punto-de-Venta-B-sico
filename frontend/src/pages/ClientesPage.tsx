@@ -8,6 +8,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import TablePagination from '../components/TablePagination';
 import { useDebounce } from '../hooks/useDebounce';
 import { getSearchInputMode, getSearchMaxLength, getSearchPlaceholder, sanitizeSearchValue, type SearchInputKind } from '../utils/searchInput';
+import { FIELD_LENGTHS } from '../utils/fieldLengths';
 
 // ─── Helpers de validación (frontend) ───────────────────────────────────────
 const SOLO_LETRAS  = /^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ]+$/; // Sin espacios en clientes
@@ -187,6 +188,9 @@ export default function ClientesPage() {
     if (field === 'direccion' && value.length > 0) {
       sanitized = value.charAt(0).toUpperCase() + value.slice(1);
     }
+    if (field === 'email') {
+      sanitized = value.slice(0, FIELD_LENGTHS.email);
+    }
     const next = { ...form, [field]: sanitized };
     setForm(next);
   };
@@ -362,6 +366,7 @@ export default function ClientesPage() {
                   value={form.nombre}
                   onChange={e => handleChange('nombre', e.target.value)}
                   onBlur={() => handleBlur('nombre')}
+                  maxLength={FIELD_LENGTHS.nombrePersona}
                   className={inputClass('nombre')}
                   placeholder="Ej: Juan"
                 />
@@ -374,6 +379,7 @@ export default function ClientesPage() {
                   value={form.apellido}
                   onChange={e => handleChange('apellido', e.target.value)}
                   onBlur={() => handleBlur('apellido')}
+                  maxLength={FIELD_LENGTHS.apellidoPersona}
                   className={inputClass('apellido')}
                   placeholder="Ej: Pérez"
                 />
@@ -386,7 +392,7 @@ export default function ClientesPage() {
                   value={form.telefono}
                   onChange={e => handleChange('telefono', e.target.value)}
                   onBlur={() => handleBlur('telefono')}
-                  maxLength={10}
+                  maxLength={FIELD_LENGTHS.telefono}
                   inputMode="numeric"
                   className={inputClass('telefono')}
                   placeholder="Ej: 0991234567"
@@ -401,6 +407,7 @@ export default function ClientesPage() {
                   value={form.email}
                   onChange={e => handleChange('email', e.target.value)}
                   onBlur={() => handleBlur('email')}
+                  maxLength={FIELD_LENGTHS.email}
                   className={inputClass('email')}
                   placeholder="Ej: correo@dominio.com"
                 />
@@ -412,6 +419,7 @@ export default function ClientesPage() {
                 <input
                   value={form.direccion}
                   onChange={e => handleChange('direccion', e.target.value)}
+                  maxLength={FIELD_LENGTHS.direccion}
                   className="w-full bg-zinc-50 border border-zinc-200 px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all"
                   placeholder="Calle, número, sector..."
                 />

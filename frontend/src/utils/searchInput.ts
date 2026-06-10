@@ -4,15 +4,19 @@ export type SearchInputKind =
   | 'letras'
   | 'codigo'
   | 'producto'
-  | 'referencia';
+  | 'referencia'
+  | 'usuario'
+  | 'producto_codigo';
 
 const MAX_LENGTH_BY_KIND: Record<SearchInputKind, number> = {
   cedula: 10,
   documento: 10,
-  letras: 60,
-  codigo: 20,
-  producto: 80,
-  referencia: 30,
+  letras: 20,
+  codigo: 10,
+  producto: 50,
+  referencia: 10,
+  usuario: 41,
+  producto_codigo: 10,
 };
 
 const PLACEHOLDER_BY_KIND: Record<SearchInputKind, string> = {
@@ -22,6 +26,8 @@ const PLACEHOLDER_BY_KIND: Record<SearchInputKind, string> = {
   codigo: 'Ej: PROD001',
   producto: 'Ej: Arroz 2kg',
   referencia: 'Ej: FAC-000001',
+  usuario: 'Ej: Juan Perez',
+  producto_codigo: 'Ej: PROD001',
 };
 
 export function sanitizeSearchValue(value: string, kind: SearchInputKind) {
@@ -33,10 +39,14 @@ export function sanitizeSearchValue(value: string, kind: SearchInputKind) {
     sanitized = value.replace(/[^\p{L}\s]/gu, '').replace(/\s{2,}/g, ' ');
   } else if (kind === 'codigo') {
     sanitized = value.replace(/[^a-zA-Z0-9_-]/g, '').toUpperCase();
+  } else if (kind === 'producto_codigo') {
+    sanitized = value.replace(/[^a-zA-Z0-9_-]/g, '').toUpperCase();
   } else if (kind === 'producto') {
     sanitized = value.replace(/[^\p{L}0-9\s.-]/gu, '').replace(/\s{2,}/g, ' ');
   } else if (kind === 'referencia') {
     sanitized = value.replace(/[^a-zA-Z0-9#_-]/g, '').toUpperCase();
+  } else if (kind === 'usuario') {
+    sanitized = value.replace(/[^\p{L}\s]/gu, '').replace(/\s{2,}/g, ' ');
   }
 
   return sanitized.slice(0, MAX_LENGTH_BY_KIND[kind]);

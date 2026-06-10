@@ -18,6 +18,7 @@ import toast from 'react-hot-toast';
 import { ClienteSearchModal, ProductoSearchModal } from '../components/SearchModals';
 import Modal from '../components/Modal';
 import ConfirmModal from '../components/ConfirmModal';
+import { FIELD_LENGTHS } from '../utils/fieldLengths';
 
 const SOLO_LETRAS = /^\p{L}+$/u;
 const EMAIL_REGEX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -85,6 +86,7 @@ export default function FacturacionPage() {
   const [confirmEliminarItem, setConfirmEliminarItem] = useState<number | null>(null);
   const [confirmCancelarVenta, setConfirmCancelarVenta] = useState(false);
   const [confirmCloseNuevoClienteOpen, setConfirmCloseNuevoClienteOpen] = useState(false);
+  const [cantidadDrafts, setCantidadDrafts] = useState<Record<number, string>>({});
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -92,11 +94,16 @@ export default function FacturacionPage() {
   }, []);
 
   const handleFinalizar = async () => {
-    if (cart.items.length === 0) return toast.error('La venta está vacía');
-    if (!cart.clienteId) return toast.error('Debe seleccionar un cliente');
+    if (cart.items.length === 0) return toast.error('La venta está vacía.', { id: 'venta-vacia' });
+    if (!cart.clienteId) return toast.error('Debe seleccionar un cliente.', { id: 'cliente-faltante' });
     
     const stockError = cart.items.find(i => i.cantidad > i.stockDisponible);
-    if (stockError) return toast.error(`Stock insuficiente para: ${stockError.nombre}`);
+    if (stockError) {
+      return toast.error(
+        `Stock insuficiente para "${stockError.nombre}". Disponible: ${stockError.stockDisponible}, solicitado: ${stockError.cantidad}.`,
+        { id: `stock-${stockError.productoId}` }
+      );
+    }
 
     setLoading(true);
     try {
@@ -116,12 +123,33 @@ export default function FacturacionPage() {
     }
   };
 
-  const handleUpdateCantidad = (id: number, cant: number, stock: number) => {
-    if (cant > stock) {
-      toast.error('Cantidad supera el stock disponible');
-      return;
+  const handleCantidadChange = (id: number, value: string) => {
+    setCantidadDrafts(prev => ({ ...prev, [id]: value }));
+  };
+
+  const commitCantidad = (id: number, stock: number) => {
+    const draft = cantidadDrafts[id];
+    if (draft === undefined) return;
+
+    const trimmed = draft.trim();
+    if (trimmed === '') {
+      cart.updateCantidad(id, 1);
+    } else {
+      const parsed = parseInt(trimmed, 10);
+      if (Number.isNaN(parsed) || parsed < 1) {
+        cart.updateCantidad(id, 1);
+      } else {
+        cart.updateCantidad(id, Math.min(parsed, stock));
+        if (parsed > stock) {
+          toast.error(`Cantidad ajustada al máximo disponible. Stock: ${stock}.`, { id: `stock-${id}` });
+        }
+      }
     }
-    cart.updateCantidad(id, Math.max(1, cant));
+    setCantidadDrafts(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   };
 
   const descargarFactura = async () => {
@@ -173,11 +201,12 @@ export default function FacturacionPage() {
     }
 
     if (field === 'nombre' || field === 'apellido') {
-      sanitized = capitalizeFirst(value.replace(/[^\p{L}]/gu, ''));
+      const limited = value.slice(0, FIELD_LENGTHS.nombrePersona);
+      sanitized = capitalizeFirst(limited.replace(/[^\p{L}]/gu, ''));
     }
 
     if (field === 'direccion' && value.length > 0) {
-      sanitized = value.charAt(0).toUpperCase() + value.slice(1);
+      sanitized = (value.charAt(0).toUpperCase() + value.slice(1)).slice(0, FIELD_LENGTHS.direccion);
     }
 
     setNuevoClienteForm(prev => {
@@ -287,19 +316,28 @@ export default function FacturacionPage() {
                     <td className="px-4 py-5 text-right font-black text-zinc-500 text-sm">${item.precio.toFixed(2)}</td>
                     <td className="px-4 py-5 text-center">
                       <div className="inline-flex items-center bg-zinc-50 rounded-xl p-1 border border-zinc-200">
-                        <button onClick={() => handleUpdateCantidad(item.productoId, item.cantidad - 1, item.stockDisponible)} className="p-1.5 text-zinc-400 hover:text-zinc-700 transition-colors"><MinusIcon className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => cart.updateCantidad(item.productoId, Math.max(1, item.cantidad - 1))} className="p-1.5 text-zinc-400 hover:text-zinc-700 transition-colors"><MinusIcon className="w-3.5 h-3.5" /></button>
                         <input 
                           type="number"
                           min="1"
                           max={item.stockDisponible}
-                          value={item.cantidad}
-                          onChange={(e) => {
-                             const val = parseInt(e.target.value);
-                             if (!isNaN(val)) handleUpdateCantidad(item.productoId, val, item.stockDisponible);
+                          value={cantidadDrafts[item.productoId] ?? String(item.cantidad)}
+                          onChange={(e) => handleCantidadChange(item.productoId, e.target.value)}
+                          onBlur={() => commitCantidad(item.productoId, item.stockDisponible)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.currentTarget.blur();
+                            }
                           }}
                           className="w-12 text-center font-black text-sm text-zinc-800 font-mono bg-transparent outline-none hide-spin-button"
                         />
-                        <button onClick={() => handleUpdateCantidad(item.productoId, item.cantidad + 1, item.stockDisponible)} className="p-1.5 text-zinc-400 hover:text-emerald-600 transition-colors"><PlusIcon className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => {
+                          if (item.cantidad + 1 > item.stockDisponible) {
+                            toast.error(`No puedes superar el stock disponible. Máximo: ${item.stockDisponible}.`, { id: `stock-${item.productoId}` });
+                            return;
+                          }
+                          cart.updateCantidad(item.productoId, item.cantidad + 1);
+                        }} className="p-1.5 text-zinc-400 hover:text-emerald-600 transition-colors"><PlusIcon className="w-3.5 h-3.5" /></button>
                       </div>
                     </td>
                     <td className="px-6 py-5 text-right font-black text-zinc-800 text-sm font-mono">${item.subtotal.toFixed(2)}</td>
@@ -380,27 +418,27 @@ export default function FacturacionPage() {
               </div>
               <div>
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Nombre</label>
-                <input value={nuevoClienteForm.nombre} onChange={e => handleNuevoClienteChange('nombre', e.target.value)} onBlur={() => handleNuevoClienteBlur('nombre')} className={nuevoClienteInputClass('nombre')} placeholder="Ej: Juan" />
+                <input value={nuevoClienteForm.nombre} onChange={e => handleNuevoClienteChange('nombre', e.target.value)} onBlur={() => handleNuevoClienteBlur('nombre')} maxLength={FIELD_LENGTHS.nombrePersona} className={nuevoClienteInputClass('nombre')} placeholder="Ej: Juan" />
                 <FieldError msg={nuevoClienteTouched.nombre ? nuevoClienteErrors.nombre : undefined} />
               </div>
               <div>
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Apellido</label>
-                <input value={nuevoClienteForm.apellido} onChange={e => handleNuevoClienteChange('apellido', e.target.value)} onBlur={() => handleNuevoClienteBlur('apellido')} className={nuevoClienteInputClass('apellido')} placeholder="Ej: Perez" />
+                <input value={nuevoClienteForm.apellido} onChange={e => handleNuevoClienteChange('apellido', e.target.value)} onBlur={() => handleNuevoClienteBlur('apellido')} maxLength={FIELD_LENGTHS.apellidoPersona} className={nuevoClienteInputClass('apellido')} placeholder="Ej: Perez" />
                 <FieldError msg={nuevoClienteTouched.apellido ? nuevoClienteErrors.apellido : undefined} />
               </div>
               <div>
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Teléfono</label>
-                <input value={nuevoClienteForm.telefono} onChange={e => handleNuevoClienteChange('telefono', e.target.value)} onBlur={() => handleNuevoClienteBlur('telefono')} maxLength={10} inputMode="numeric" className={nuevoClienteInputClass('telefono')} placeholder="Ej: 0991234567" />
+                <input value={nuevoClienteForm.telefono} onChange={e => handleNuevoClienteChange('telefono', e.target.value)} onBlur={() => handleNuevoClienteBlur('telefono')} maxLength={FIELD_LENGTHS.telefono} inputMode="numeric" className={nuevoClienteInputClass('telefono')} placeholder="Ej: 0991234567" />
                 <FieldError msg={nuevoClienteTouched.telefono ? nuevoClienteErrors.telefono : undefined} />
               </div>
               <div>
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Correo Electrónico</label>
-                <input type="text" value={nuevoClienteForm.email} onChange={e => handleNuevoClienteChange('email', e.target.value)} onBlur={() => handleNuevoClienteBlur('email')} className={nuevoClienteInputClass('email')} placeholder="Ej: correo@dominio.com" />
+                <input type="text" value={nuevoClienteForm.email} onChange={e => handleNuevoClienteChange('email', e.target.value)} onBlur={() => handleNuevoClienteBlur('email')} maxLength={FIELD_LENGTHS.email} className={nuevoClienteInputClass('email')} placeholder="Ej: correo@dominio.com" />
                 <FieldError msg={nuevoClienteTouched.email ? nuevoClienteErrors.email : undefined} />
               </div>
               <div className="col-span-2">
                 <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Dirección</label>
-                <input value={nuevoClienteForm.direccion} onChange={e => handleNuevoClienteChange('direccion', e.target.value)} className="w-full bg-zinc-50 border border-zinc-200 px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" placeholder="Calle, numero, sector..." />
+                <input value={nuevoClienteForm.direccion} onChange={e => handleNuevoClienteChange('direccion', e.target.value)} maxLength={FIELD_LENGTHS.direccion} className="w-full bg-zinc-50 border border-zinc-200 px-5 py-3.5 rounded-xl text-zinc-800 text-sm font-bold outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 transition-all" placeholder="Calle, numero, sector..." />
               </div>
             </div>
             <div className="flex gap-4 pt-4 border-t-2 border-emerald-500/10">

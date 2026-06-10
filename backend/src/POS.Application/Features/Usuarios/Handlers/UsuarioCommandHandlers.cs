@@ -165,7 +165,11 @@ public class DeleteUsuarioCommandHandler : IRequestHandler<DeleteUsuarioCommand,
         if (string.Equals(usuario.Role?.Nombre, "Administrador", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("No se puede eliminar un usuario administrador.");
 
-        _uow.Usuarios.Delete(usuario);
+        usuario.Activo = false;
+        usuario.Bloqueado = true;
+        usuario.RefreshToken = null;
+        usuario.RefreshTokenExpiryTime = null;
+        _uow.Usuarios.Update(usuario);
         await _uow.CommitAsync(ct);
         return true;
     }

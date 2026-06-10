@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { BuildingStorefrontIcon, EyeIcon, EyeSlashIcon, LockClosedIcon, UserIcon } from '@heroicons/react/24/outline';
 import api from '../api';
+import { FIELD_LENGTHS } from '../utils/fieldLengths';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -64,6 +65,7 @@ export default function LoginPage() {
                 required
                 value={username}
                 onChange={e => setUsername(e.target.value)}
+                maxLength={FIELD_LENGTHS.username}
                 className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-800 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 outline-none transition-all placeholder:text-zinc-400 font-medium"
                 placeholder="Ingresa tu usuario"
               />
@@ -78,7 +80,8 @@ export default function LoginPage() {
                 required
                 type={showPassword ? 'text' : 'password'}
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={e => setPassword(e.target.value.slice(0, FIELD_LENGTHS.password))}
+                maxLength={FIELD_LENGTHS.password}
                 className="w-full pl-12 pr-12 py-4 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-800 focus:ring-2 focus:ring-emerald-200 focus:border-emerald-400 outline-none transition-all placeholder:text-zinc-400 font-medium"
                 placeholder="••••••••"
               />

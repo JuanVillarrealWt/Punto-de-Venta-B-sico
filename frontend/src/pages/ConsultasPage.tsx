@@ -20,6 +20,7 @@ export default function ConsultasPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -70,6 +71,21 @@ export default function ConsultasPage() {
 
   const handleSearchChange = (value: string) => {
     setSearch(sanitizeSearchValue(value, searchKind));
+  };
+
+  const handleDesdeChange = (value: string) => {
+    setDesde(value);
+    if (hasta && value && hasta < value) {
+      setHasta(value);
+    }
+  };
+
+  const handleHastaChange = (value: string) => {
+    if (desde && value && value < desde) {
+      setHasta(desde);
+      return;
+    }
+    setHasta(value);
   };
 
   const descargarPdf = async (id: number, numero: string) => {
@@ -147,8 +163,27 @@ export default function ConsultasPage() {
               <input placeholder={getSearchPlaceholder(searchKind)} value={search} onChange={e => handleSearchChange(e.target.value)} maxLength={getSearchMaxLength(searchKind)} inputMode={getSearchInputMode(searchKind)}
                 className="flex-1 bg-transparent text-zinc-800 px-3 text-sm font-bold outline-none placeholder:text-zinc-400" />
           </div>
-          <input type="date" value={desde} onChange={e => setDesde(e.target.value)} className="bg-zinc-50 border border-zinc-200 px-4 py-2 rounded-xl text-zinc-800 text-xs font-bold" />
-          <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} className="bg-zinc-50 border border-zinc-200 px-4 py-2 rounded-xl text-zinc-800 text-xs font-bold" />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Desde</label>
+            <input
+              type="date"
+              value={desde}
+              max={today}
+              onChange={e => handleDesdeChange(e.target.value)}
+              className="bg-zinc-50 border border-zinc-200 px-4 py-2 rounded-xl text-zinc-800 text-xs font-bold cursor-pointer"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Hasta</label>
+            <input
+              type="date"
+              value={hasta}
+              min={desde || undefined}
+              max={today}
+              onChange={e => handleHastaChange(e.target.value)}
+              className="bg-zinc-50 border border-zinc-200 px-4 py-2 rounded-xl text-zinc-800 text-xs font-bold cursor-pointer"
+            />
+          </div>
         </div>
       </div>
 

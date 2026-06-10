@@ -70,7 +70,7 @@ public class ExceptionMiddleware
             if (innerMsg.Contains("Identificacion", StringComparison.OrdinalIgnoreCase) ||
                 innerMsg.Contains("cedula", StringComparison.OrdinalIgnoreCase) ||
                 innerMsg.Contains("IX_Clientes_Identificacion", StringComparison.OrdinalIgnoreCase))
-                friendlyMsg = "La cédula ingresada ya está registrada por otro cliente. Cámbiala e inténtalo de nuevo.";
+                friendlyMsg = "La cédula ingresada ya está registrada por otro cliente. Por favor cámbiala e inténtalo de nuevo.";
             else if (innerMsg.Contains("Telefono", StringComparison.OrdinalIgnoreCase) ||
                      innerMsg.Contains("telefono", StringComparison.OrdinalIgnoreCase) ||
                      innerMsg.Contains("IX_Clientes_Telefono", StringComparison.OrdinalIgnoreCase))
