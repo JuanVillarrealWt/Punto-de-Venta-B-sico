@@ -71,6 +71,10 @@ public class ExceptionMiddleware
                 innerMsg.Contains("cedula", StringComparison.OrdinalIgnoreCase) ||
                 innerMsg.Contains("IX_Clientes_Identificacion", StringComparison.OrdinalIgnoreCase))
                 friendlyMsg = "La cédula ingresada ya está registrada por otro cliente. Cámbiala e inténtalo de nuevo.";
+            else if (innerMsg.Contains("Telefono", StringComparison.OrdinalIgnoreCase) ||
+                     innerMsg.Contains("telefono", StringComparison.OrdinalIgnoreCase) ||
+                     innerMsg.Contains("IX_Clientes_Telefono", StringComparison.OrdinalIgnoreCase))
+                friendlyMsg = "El teléfono ya está registrado. Usa otro número e inténtalo de nuevo.";
             else if (innerMsg.Contains("email", StringComparison.OrdinalIgnoreCase) ||
                      innerMsg.Contains("Email", StringComparison.OrdinalIgnoreCase))
                 friendlyMsg = "El correo electrónico ya está registrado. Usa otro correo e inténtalo de nuevo.";

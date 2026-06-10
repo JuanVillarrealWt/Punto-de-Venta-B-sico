@@ -35,6 +35,15 @@ public class UsuarioRepository : GenericRepository<Usuario>, IUsuarioRepository
         return await q.AnyAsync();
     }
 
+    public async Task<bool> ExisteCedulaAsync(string cedula, int? excludeId = null)
+    {
+        var q = _context.Set<Usuario>()
+            .Where(u => u.Cedula == cedula);
+        if (excludeId.HasValue)
+            q = q.Where(u => u.Id != excludeId.Value);
+        return await q.AnyAsync();
+    }
+
     public async Task<bool> ExisteUsernameAsync(string username, int? excludeId = null)
     {
         var q = _context.Set<Usuario>()

@@ -59,6 +59,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginResponse?>
         return new LoginResponse(
             token, 
             refreshToken, 
+            usuario.Id,
             usuario.Username, 
             usuario.Nombre, 
             usuario.Apellido ?? string.Empty,
@@ -142,6 +143,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, L
         return new LoginResponse(
             newAccessToken, 
             newRefreshToken, 
+            usuario.Id,
             usuario.Username, 
             usuario.Nombre, 
             usuario.Apellido ?? string.Empty,

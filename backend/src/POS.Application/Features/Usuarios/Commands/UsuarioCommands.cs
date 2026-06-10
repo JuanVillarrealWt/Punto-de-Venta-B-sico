@@ -18,7 +18,7 @@ public record CreateUsuarioCommand(
 public record UpdateUsuarioCommand(
     int Id,
     string Username,
-    string? Password, // Opcional al actualizar
+    string? Password,
     string Nombre,
     string Apellido,
     string? Cedula,
@@ -29,23 +29,14 @@ public record UpdateUsuarioCommand(
 ) : IRequest<UsuarioDto>;
 
 public record DeleteUsuarioCommand(int Id) : IRequest<bool>;
-
 public record ToggleBloqueoCommand(int Id) : IRequest<bool>;
 
-/// <summary>
-/// Reglas compartidas de validación de formato para Usuarios.
-/// La unicidad de username y email se verifica en el Handler (consulta a BD).
-/// </summary>
 file static class UsuarioRules
 {
-    // Solo letras (incluye tildes y ñ), sin espacios ni números
     public const string SoloLetrasPattern = @"^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ]+$";
-
-    // Username: alfanumérico + guión bajo, sin espacios
-    public const string UsernamePattern   = @"^[a-zA-Z0-9_]+$";
-
-    // Email: un solo @, algo antes, punto + algo después del @
-    public const string EmailPattern      = @"^[^@\s]+@[^@\s]+\.[^@\s]+$";
+    public const string CedulaPattern = @"^(0[1-9]|1[0-9]|2[0-4])\d{8}$";
+    public const string UsernamePattern = @"^[a-zA-Z0-9_]+$";
+    public const string EmailPattern = @"^[^@\s]+@[^@\s]+\.[^@\s]+$";
 
     public static void AplicarReglasPersona<T>(AbstractValidator<T> v,
         System.Linq.Expressions.Expression<Func<T, string>> nombre,
@@ -61,6 +52,14 @@ file static class UsuarioRules
             .MaximumLength(100).WithMessage("El apellido no puede superar 100 caracteres.")
             .Matches(SoloLetrasPattern).WithMessage("El apellido solo puede contener letras, sin espacios ni números.");
     }
+
+    public static void AplicarReglasCedula<T>(AbstractValidator<T> v, System.Linq.Expressions.Expression<Func<T, string?>> cedula)
+    {
+        v.RuleFor(cedula)
+            .NotEmpty().WithMessage("La cédula es requerida.")
+            .Length(10).WithMessage("La cédula debe tener exactamente 10 dígitos.")
+            .Matches(CedulaPattern).WithMessage("La cédula debe ser ecuatoriana (provincia 01-24) y tener 10 dígitos numéricos.");
+    }
 }
 
 public class CreateUsuarioValidator : AbstractValidator<CreateUsuarioCommand>
@@ -73,6 +72,7 @@ public class CreateUsuarioValidator : AbstractValidator<CreateUsuarioCommand>
             .Matches(UsuarioRules.UsernamePattern)
             .WithMessage("El username solo puede contener letras, números y guiones bajos, sin espacios.");
 
+        UsuarioRules.AplicarReglasCedula(this, x => x.Cedula);
         UsuarioRules.AplicarReglasPersona(this, x => x.Nombre, x => x.Apellido);
 
         RuleFor(x => x.Email)
@@ -102,6 +102,7 @@ public class UpdateUsuarioValidator : AbstractValidator<UpdateUsuarioCommand>
             .Matches(UsuarioRules.UsernamePattern)
             .WithMessage("El username solo puede contener letras, números y guiones bajos, sin espacios.");
 
+        UsuarioRules.AplicarReglasCedula(this, x => x.Cedula);
         UsuarioRules.AplicarReglasPersona(this, x => x.Nombre, x => x.Apellido);
 
         RuleFor(x => x.Email)
@@ -109,7 +110,6 @@ public class UpdateUsuarioValidator : AbstractValidator<UpdateUsuarioCommand>
             .Matches(UsuarioRules.EmailPattern)
             .WithMessage("El correo debe tener un solo @, algo antes y algo.algo después.");
 
-        // Contraseña es opcional al editar, pero si se provee debe cumplir requisitos
         When(x => !string.IsNullOrWhiteSpace(x.Password), () =>
         {
             RuleFor(x => x.Password!)

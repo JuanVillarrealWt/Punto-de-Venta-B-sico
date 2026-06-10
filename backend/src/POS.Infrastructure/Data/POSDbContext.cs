@@ -33,9 +33,10 @@ public class POSDbContext : DbContext
             e.Property(c => c.Telefono).HasColumnType("char(10)");
             e.Property(c => c.Email).HasMaxLength(100);
             e.HasIndex(c => c.Identificacion).IsUnique();
+            e.HasIndex(c => c.Telefono).IsUnique();
             e.HasIndex(c => c.Nombre);
             e.HasIndex(c => c.Apellido);
-            e.HasIndex(c => c.Email);
+            e.HasIndex(c => c.Email).IsUnique();
         });
 
         // Producto
@@ -125,7 +126,8 @@ public class POSDbContext : DbContext
             e.Property(u => u.RefreshToken).HasMaxLength(200);
             e.Property(u => u.RefreshTokenExpiryTime);
             e.HasIndex(u => u.Username).IsUnique();
-            e.HasIndex(u => u.Email);
+            e.HasIndex(u => u.Cedula).IsUnique();
+            e.HasIndex(u => u.Email).IsUnique();
         });
 
         // MetodoPago

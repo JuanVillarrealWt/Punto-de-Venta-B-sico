@@ -10,6 +10,7 @@ import {
   IdentificationIcon,
   CheckCircleIcon,
   XCircleIcon,
+  TrashIcon,
   ClockIcon,
   UserIcon,
   KeyIcon,
@@ -18,16 +19,20 @@ import {
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import Modal from '../components/Modal';
+import ConfirmModal from '../components/ConfirmModal';
+import { useAuthStore } from '../store/authStore';
 
 // ─── Helpers de validación (frontend) ───────────────────────────────────────
 const SOLO_LETRAS   = /^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ]+$/;
 const EMAIL_REGEX   = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const CEDULA_EC     = /^(0[1-9]|1[0-9]|2[0-4])\d{8}$/;
 const USERNAME_RX   = /^[a-zA-Z0-9_]+$/;
 const capitalizeFirst = (s: string) =>
   s.length === 0 ? '' : s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 
 interface UsuarioFormData {
   username: string;
+  cedula: string;
   password: string;
   confirmPassword: string;
   nombre: string;
@@ -45,6 +50,11 @@ function validarCamposUsuario(data: UsuarioFormData, isEditing: boolean): Record
     err.username = 'El username es requerido.';
   else if (!USERNAME_RX.test(data.username))
     err.username = 'Solo letras, números y guión bajo, sin espacios.';
+
+  if (!data.cedula)
+    err.cedula = 'La cédula es requerida.';
+  else if (!CEDULA_EC.test(data.cedula))
+    err.cedula = 'Debe ser cédula ecuatoriana válida de 10 dígitos.';
 
   if (!data.nombre)
     err.nombre = 'El nombre es requerido.';
@@ -84,6 +94,7 @@ export default function UsuariosPage() {
   
   const [formData, setFormData] = useState<UsuarioFormData>({
     username: '',
+    cedula: '',
     password: '',
     confirmPassword: '',
     nombre: '',
@@ -98,6 +109,10 @@ export default function UsuariosPage() {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<Usuario | null>(null);
+  const currentUser = useAuthStore(state => state.user);
 
   // Validación de complejidad de contraseña
   const passwordRules = [
@@ -144,6 +159,7 @@ export default function UsuariosPage() {
     setSelectedUser(null);
     setFormData({
       username: '',
+      cedula: '',
       password: '',
       confirmPassword: '',
       nombre: '',
@@ -158,11 +174,44 @@ export default function UsuariosPage() {
     setIsModalOpen(true);
   };
 
+  const requestCloseModal = () => {
+    setConfirmCloseOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setConfirmCloseOpen(false);
+  };
+
+  const requestDelete = (u: Usuario) => {
+    setUserToDelete(u);
+    setConfirmDeleteOpen(true);
+  };
+
+  const closeDeleteConfirm = () => {
+    setConfirmDeleteOpen(false);
+    setUserToDelete(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!userToDelete) return;
+    try {
+      await usuariosApi.delete(userToDelete.id);
+      toast.success('Usuario eliminado');
+      loadData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'No se pudo eliminar');
+    } finally {
+      closeDeleteConfirm();
+    }
+  };
+
   const openEdit = (u: Usuario) => {
     if (!u) return;
     setSelectedUser(u);
     setFormData({
       username: u.username || '',
+      cedula: u.cedula || '',
       password: '',
       confirmPassword: '',
       nombre: u.nombre || '',
@@ -182,6 +231,9 @@ export default function UsuariosPage() {
     let sanitized = value;
 
     if (typeof value === 'string') {
+      if (field === 'cedula') {
+        sanitized = value.replace(/\D/g, '');
+      }
       // Solo letras puras + primera en mayúscula en nombre y apellido
       if (field === 'nombre' || field === 'apellido') {
         sanitized = capitalizeFirst(value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚüÜñÑ]/g, ''));
@@ -324,6 +376,11 @@ export default function UsuariosPage() {
                 <button onClick={() => u?.id && handleToggleBloqueo(u.id)} className={`p-3 transition-all rounded-xl border ${u?.bloqueado ? 'bg-red-50 text-red-600 border-red-200' : 'bg-zinc-50 text-zinc-400 hover:text-red-600 border-zinc-200 hover:border-red-200 hover:bg-red-50'}`}>
                   {u?.bloqueado ? <LockClosedIcon className="w-4.5 h-4.5" /> : <LockOpenIcon className="w-4.5 h-4.5" />}
                 </button>
+                {u?.roleNombre !== 'Administrador' && currentUser?.id !== u?.id && (
+                  <button onClick={() => requestDelete(u)} className="p-3 text-zinc-400 hover:text-red-600 bg-zinc-50 rounded-xl border border-zinc-200 hover:border-red-200 hover:bg-red-50 transition-all">
+                    <TrashIcon className="w-4.5 h-4.5" />
+                  </button>
+                )}
               </div>
             </div>
             <div className="space-y-5">
@@ -352,7 +409,7 @@ export default function UsuariosPage() {
       </div>
 
       {/* Formulario de Registro */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={selectedUser ? 'ACTUALIZAR ACCESOS' : 'CREAR NUEVO PERFIL'}>
+      <Modal isOpen={isModalOpen} onClose={requestCloseModal} title={selectedUser ? 'ACTUALIZAR ACCESOS' : 'CREAR NUEVO PERFIL'}>
         <div className="bg-white rounded-2xl p-8 shadow-xl text-zinc-800 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -z-10 pointer-events-none transform translate-x-1/2 -translate-y-1/2"></div>
 
@@ -383,6 +440,20 @@ export default function UsuariosPage() {
                   />
                 </div>
                 <FieldError msg={touched.username ? fieldErrors.username : undefined} />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="text-[10px] font-black text-zinc-800 uppercase tracking-widest block mb-2 ml-1">Cédula</label>
+                <input
+                  value={formData.cedula}
+                  onChange={e => handleChange('cedula', e.target.value)}
+                  onBlur={() => handleBlur('cedula')}
+                  maxLength={10}
+                  inputMode="numeric"
+                  className={inputClass('cedula')}
+                  placeholder="Ej: 1802288996"
+                />
+                <FieldError msg={touched.cedula ? fieldErrors.cedula : undefined} />
               </div>
 
               {/* Nombre */}
@@ -522,7 +593,7 @@ export default function UsuariosPage() {
             </div>
 
             <div className="flex gap-4 pt-4 border-t-2 border-emerald-500/10">
-              <button type="button" onClick={() => setIsModalOpen(false)} disabled={saving} className="flex-1 py-3.5 border-2 border-zinc-200 text-zinc-500 hover:bg-zinc-50 rounded-xl text-[10px] font-black uppercase transition-all disabled:opacity-50">DESCARTAR</button>
+              <button type="button" onClick={requestCloseModal} disabled={saving} className="flex-1 py-3.5 border-2 border-zinc-200 text-zinc-500 hover:bg-zinc-50 rounded-xl text-[10px] font-black uppercase transition-all disabled:opacity-50">DESCARTAR</button>
               <button type="submit" disabled={saving} className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-300 disabled:text-zinc-500 disabled:shadow-none text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-emerald-600/20 transition-all">
                 {saving ? 'GUARDANDO...' : (selectedUser ? 'GUARDAR CAMBIOS' : 'CONFIRMAR REGISTRO')}
               </button>
@@ -530,6 +601,26 @@ export default function UsuariosPage() {
           </form>
         </div>
       </Modal>
+
+      <ConfirmModal
+        isOpen={confirmCloseOpen}
+        onClose={() => setConfirmCloseOpen(false)}
+        onConfirm={closeModal}
+        title="SALIR"
+        message="¿Estás seguro? Perderás los datos ingresados."
+        confirmText="SÍ, SALIR"
+        type="warning"
+      />
+
+      <ConfirmModal
+        isOpen={confirmDeleteOpen}
+        onClose={closeDeleteConfirm}
+        onConfirm={confirmDelete}
+        title="ELIMINAR USUARIO"
+        message="¿Estás seguro? Perderás los datos ingresados."
+        confirmText="ELIMINAR"
+        type="danger"
+      />
     </div>
   );
 }

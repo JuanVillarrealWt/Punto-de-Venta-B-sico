@@ -19,6 +19,33 @@ file static class TextHelper
             : Ti.ToTitleCase(value.Trim().Replace(" ", "").ToLower());
 }
 
+file static class UniquenessChecker
+{
+    public static async Task VerificarAsync(
+        IUnitOfWork uow,
+        string? cedula,
+        string email,
+        int? excludeUserId = null)
+    {
+        var cedulaNorm = string.IsNullOrWhiteSpace(cedula) ? null : cedula.Trim();
+        if (!string.IsNullOrWhiteSpace(cedulaNorm))
+        {
+            if (await uow.Usuarios.ExisteCedulaAsync(cedulaNorm, excludeUserId))
+                throw new InvalidOperationException("La cédula ya está registrada en usuarios.");
+
+            if (await uow.Clientes.ExisteIdentificacionAsync(cedulaNorm, null))
+                throw new InvalidOperationException("La cédula ya está registrada en clientes.");
+        }
+
+        var emailNorm = email.Trim().ToLower();
+        if (await uow.Usuarios.ExisteEmailAsync(emailNorm, excludeUserId))
+            throw new InvalidOperationException("El correo electrónico ya está registrado en usuarios.");
+
+        if (await uow.Clientes.ExisteEmailAsync(emailNorm, null))
+            throw new InvalidOperationException("El correo electrónico ya está registrado en clientes.");
+    }
+}
+
 public class CreateUsuarioCommandHandler : IRequestHandler<CreateUsuarioCommand, UsuarioDto>
 {
     private readonly IUnitOfWork _uow;
@@ -36,10 +63,7 @@ public class CreateUsuarioCommandHandler : IRequestHandler<CreateUsuarioCommand,
         if (await _uow.Usuarios.ExisteUsernameAsync(request.Username))
             throw new InvalidOperationException("El nombre de usuario ya está en uso.");
 
-        // Verificar unicidad cruzada de email (usuarios + clientes)
-        var emailNorm = request.Email.Trim().ToLower();
-        if (await _uow.Usuarios.ExisteEmailAsync(emailNorm))
-            throw new InvalidOperationException("El correo electrónico ya está registrado en usuarios.");
+        await UniquenessChecker.VerificarAsync(_uow, request.Cedula, request.Email);
 
         var usuario = new Usuario
         {
@@ -47,8 +71,8 @@ public class CreateUsuarioCommandHandler : IRequestHandler<CreateUsuarioCommand,
             PasswordHash = BC.HashPassword(request.Password, 8),
             Nombre       = TextHelper.TitleCase(request.Nombre),
             Apellido     = TextHelper.TitleCase(request.Apellido),
-            Cedula       = request.Cedula,
-            Email        = emailNorm,
+            Cedula       = request.Cedula?.Trim(),
+            Email        = request.Email.Trim().ToLower(),
             RoleId       = request.RoleId,
             Activo       = true
         };
@@ -81,16 +105,13 @@ public class UpdateUsuarioCommandHandler : IRequestHandler<UpdateUsuarioCommand,
         if (await _uow.Usuarios.ExisteUsernameAsync(request.Username, excludeId: request.Id))
             throw new InvalidOperationException("El nombre de usuario ya está en uso.");
 
-        // Verificar unicidad cruzada de email excluyendo al propio usuario
-        var emailNorm = request.Email.Trim().ToLower();
-        if (await _uow.Usuarios.ExisteEmailAsync(emailNorm, excludeId: request.Id))
-            throw new InvalidOperationException("El correo electrónico ya está registrado en usuarios.");
+        await UniquenessChecker.VerificarAsync(_uow, request.Cedula, request.Email, excludeUserId: request.Id);
 
         usuario.Username  = request.Username.Trim();
         usuario.Nombre    = TextHelper.TitleCase(request.Nombre);
         usuario.Apellido  = TextHelper.TitleCase(request.Apellido);
-        usuario.Cedula    = request.Cedula;
-        usuario.Email     = emailNorm;
+        usuario.Cedula    = request.Cedula?.Trim();
+        usuario.Email     = request.Email.Trim().ToLower();
         usuario.RoleId    = request.RoleId;
         usuario.Activo    = request.Activo;
         usuario.Bloqueado = request.Bloqueado;
@@ -125,6 +146,26 @@ public class ToggleBloqueoCommandHandler : IRequestHandler<ToggleBloqueoCommand,
         if (!usuario.Bloqueado) usuario.IntentosFallidos = 0;
 
         _uow.Usuarios.Update(usuario);
+        await _uow.CommitAsync(ct);
+        return true;
+    }
+}
+
+public class DeleteUsuarioCommandHandler : IRequestHandler<DeleteUsuarioCommand, bool>
+{
+    private readonly IUnitOfWork _uow;
+
+    public DeleteUsuarioCommandHandler(IUnitOfWork uow) => _uow = uow;
+
+    public async Task<bool> Handle(DeleteUsuarioCommand request, CancellationToken ct)
+    {
+        var usuario = await _uow.Usuarios.GetByIdAsync(request.Id);
+        if (usuario == null) return false;
+
+        if (string.Equals(usuario.Role?.Nombre, "Administrador", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("No se puede eliminar un usuario administrador.");
+
+        _uow.Usuarios.Delete(usuario);
         await _uow.CommitAsync(ct);
         return true;
     }

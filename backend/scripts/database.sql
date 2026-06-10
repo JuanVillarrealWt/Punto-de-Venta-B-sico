@@ -54,7 +54,8 @@ CREATE TABLE Usuarios (
 GO
 
 -- Índice para búsquedas por Email
-CREATE NONCLUSTERED INDEX IX_Usuarios_Email ON Usuarios(Email);
+CREATE UNIQUE NONCLUSTERED INDEX IX_Usuarios_Cedula ON Usuarios(Cedula) WHERE Cedula IS NOT NULL;
+CREATE UNIQUE NONCLUSTERED INDEX IX_Usuarios_Email ON Usuarios(Email);
 GO
 
 -- ============================================================
@@ -94,7 +95,8 @@ GO
 -- Índices para búsquedas frecuentes por Nombre y Apellido
 CREATE NONCLUSTERED INDEX IX_Clientes_Nombre ON Clientes(Nombre);
 CREATE NONCLUSTERED INDEX IX_Clientes_Apellido ON Clientes(Apellido);
-CREATE NONCLUSTERED INDEX IX_Clientes_Email ON Clientes(Email);
+CREATE UNIQUE NONCLUSTERED INDEX IX_Clientes_Email ON Clientes(Email) WHERE Email IS NOT NULL;
+CREATE UNIQUE NONCLUSTERED INDEX IX_Clientes_Telefono ON Clientes(Telefono) WHERE Telefono IS NOT NULL;
 GO
 
 -- ============================================================

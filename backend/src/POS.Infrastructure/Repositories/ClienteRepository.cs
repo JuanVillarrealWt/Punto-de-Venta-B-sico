@@ -77,4 +77,20 @@ public class ClienteRepository : IClienteRepository
             q = q.Where(c => c.Id != excludeId.Value);
         return await q.AnyAsync();
     }
+
+    public async Task<bool> ExisteIdentificacionAsync(string identificacion, int? excludeId = null)
+    {
+        var q = _db.Clientes.Where(c => c.Identificacion == identificacion);
+        if (excludeId.HasValue)
+            q = q.Where(c => c.Id != excludeId.Value);
+        return await q.AnyAsync();
+    }
+
+    public async Task<bool> ExisteTelefonoAsync(string telefono, int? excludeId = null)
+    {
+        var q = _db.Clientes.Where(c => c.Telefono == telefono);
+        if (excludeId.HasValue)
+            q = q.Where(c => c.Id != excludeId.Value);
+        return await q.AnyAsync();
+    }
 }

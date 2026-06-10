@@ -110,6 +110,7 @@ export default function ClientesPage() {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [clienteToDelete, setClienteToDelete] = useState<number | null>(null);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -162,6 +163,15 @@ export default function ClientesPage() {
     setTouched({});
     setModalOpen(true);
   }, []);
+
+  const requestCloseModal = () => {
+    setConfirmCloseOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setConfirmCloseOpen(false);
+  };
 
   const handleChange = (field: keyof ClienteForm, value: string) => {
     let sanitized = value;
@@ -317,7 +327,7 @@ export default function ClientesPage() {
         />
       </div>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="REGISTRO DE CLIENTE">
+      <Modal isOpen={modalOpen} onClose={requestCloseModal} title="REGISTRO DE CLIENTE">
         <div className="bg-white rounded-2xl p-8 shadow-xl text-zinc-800 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -z-10 pointer-events-none transform translate-x-1/2 -translate-y-1/2"></div>
 
@@ -409,7 +419,7 @@ export default function ClientesPage() {
             </div>
 
             <div className="flex gap-4 pt-4 border-t-2 border-emerald-500/10">
-              <button type="button" onClick={() => setModalOpen(false)} disabled={saving} className="flex-1 py-3.5 border-2 border-zinc-200 text-zinc-500 hover:bg-zinc-50 rounded-xl text-[10px] font-black uppercase transition-all disabled:opacity-50">CANCELAR</button>
+              <button type="button" onClick={requestCloseModal} disabled={saving} className="flex-1 py-3.5 border-2 border-zinc-200 text-zinc-500 hover:bg-zinc-50 rounded-xl text-[10px] font-black uppercase transition-all disabled:opacity-50">CANCELAR</button>
               <button type="submit" disabled={saving} className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-300 disabled:text-zinc-500 disabled:shadow-none text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-emerald-600/20 transition-all">
                 {saving ? 'GUARDANDO...' : 'GUARDAR'}
               </button>
@@ -423,9 +433,19 @@ export default function ClientesPage() {
         onClose={() => setConfirmOpen(false)}
         onConfirm={confirmDelete}
         title="ELIMINAR"
-        message="¿Confirmar?"
+        message="¿Estás seguro? Perderás los datos ingresados."
         confirmText="ELIMINAR"
         type="danger"
+      />
+
+      <ConfirmModal
+        isOpen={confirmCloseOpen}
+        onClose={() => setConfirmCloseOpen(false)}
+        onConfirm={closeModal}
+        title="SALIR"
+        message="¿Seguro que deseas salir? Se borrarán los datos ingresados."
+        confirmText="SÍ, SALIR"
+        type="warning"
       />
     </div>
   );

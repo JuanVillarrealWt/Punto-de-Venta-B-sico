@@ -115,6 +115,7 @@ export const usuariosApi = {
   getAll: () => api.get<Usuario[]>('/usuarios'),
   create: (data: any) => api.post<Usuario>('/usuarios', data),
   update: (id: number, data: any) => api.put<Usuario>(`/usuarios/${id}`, data),
+  delete: (id: number) => api.delete(`/usuarios/${id}`),
   toggleBloqueo: (id: number) => api.post(`/usuarios/${id}/toggle-bloqueo`),
   getRoles: () => api.get<Rol[]>('/usuarios/roles'),
 };

@@ -84,6 +84,7 @@ export default function FacturacionPage() {
 
   const [confirmEliminarItem, setConfirmEliminarItem] = useState<number | null>(null);
   const [confirmCancelarVenta, setConfirmCancelarVenta] = useState(false);
+  const [confirmCloseNuevoClienteOpen, setConfirmCloseNuevoClienteOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -200,11 +201,16 @@ export default function FacturacionPage() {
   const closeNuevoClienteModal = () => {
     setNuevoClienteModal(false);
     resetNuevoClienteForm();
+    setConfirmCloseNuevoClienteOpen(false);
   };
 
   const openNuevoClienteModal = () => {
     resetNuevoClienteForm();
     setNuevoClienteModal(true);
+  };
+
+  const requestCloseNuevoClienteModal = () => {
+    setConfirmCloseNuevoClienteOpen(true);
   };
 
   const nuevoClienteInputClass = (field: string) =>
@@ -244,7 +250,7 @@ export default function FacturacionPage() {
               <div className="flex items-center gap-3 px-5 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
                 <UserIcon className="w-4 h-4 text-emerald-600" />
                 <span className="text-[10px] font-black uppercase text-zinc-800 truncate max-w-[150px]">{cart.clienteNombre}</span>
-                <button onClick={() => cart.setCliente(null, '')} className="p-1 hover:bg-red-50 hover:text-red-600 rounded-lg transition-all text-zinc-400"><XMarkIcon className="w-3.5 h-3.5" /></button>
+                <button onClick={() => setConfirmCancelarVenta(true)} className="p-1 hover:bg-red-50 hover:text-red-600 rounded-lg transition-all text-zinc-400"><XMarkIcon className="w-3.5 h-3.5" /></button>
               </div>
             ) : (
               <>
@@ -354,7 +360,7 @@ export default function FacturacionPage() {
       />
       <ProductoSearchModal isOpen={productoModal} onClose={() => setProductoModal(false)} onSelect={(p) => { cart.addItem(p); setProductoModal(false); }} />
       
-      <Modal isOpen={nuevoClienteModal} onClose={closeNuevoClienteModal} title="REGISTRO DE CLIENTE (RÁPIDO)">
+      <Modal isOpen={nuevoClienteModal} onClose={requestCloseNuevoClienteModal} title="REGISTRO DE CLIENTE (RÁPIDO)">
         <div className="bg-white rounded-2xl p-8 shadow-xl text-zinc-800 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -z-10 pointer-events-none transform translate-x-1/2 -translate-y-1/2"></div>
 
@@ -398,7 +404,7 @@ export default function FacturacionPage() {
               </div>
             </div>
             <div className="flex gap-4 pt-4 border-t-2 border-emerald-500/10">
-              <button type="button" onClick={closeNuevoClienteModal} disabled={savingCliente} className="flex-1 py-3.5 border-2 border-zinc-200 text-zinc-500 hover:bg-zinc-50 rounded-xl text-[10px] font-black uppercase transition-all disabled:opacity-50">CANCELAR</button>
+              <button type="button" onClick={requestCloseNuevoClienteModal} disabled={savingCliente} className="flex-1 py-3.5 border-2 border-zinc-200 text-zinc-500 hover:bg-zinc-50 rounded-xl text-[10px] font-black uppercase transition-all disabled:opacity-50">CANCELAR</button>
               <button type="submit" disabled={savingCliente} className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-zinc-300 disabled:text-zinc-500 disabled:shadow-none text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-emerald-600/20 transition-all">
                 {savingCliente ? 'GUARDANDO...' : 'GUARDAR Y SELECCIONAR'}
               </button>
@@ -487,7 +493,27 @@ export default function FacturacionPage() {
       </Modal>
 
       <ConfirmModal isOpen={!!confirmEliminarItem} onClose={() => setConfirmEliminarItem(null)} onConfirm={() => { if(confirmEliminarItem) cart.removeItem(confirmEliminarItem); setConfirmEliminarItem(null); }} title="QUITAR" message="¿Eliminar artículo?" confirmText="QUITAR" type="danger" />
-      <ConfirmModal isOpen={confirmCancelarVenta} onClose={() => setConfirmCancelarVenta(false)} onConfirm={() => { cart.clearCart(); setConfirmCancelarVenta(false); }} title="CANCELAR" message="¿Limpiar venta?" confirmText="SÍ, CANCELAR" type="danger" />
+      <ConfirmModal
+        isOpen={confirmCancelarVenta}
+        onClose={() => setConfirmCancelarVenta(false)}
+        onConfirm={() => {
+          cart.clearCart();
+          setConfirmCancelarVenta(false);
+        }}
+        title="CANCELAR"
+        message="¿Estás seguro? Perderás los datos ingresados."
+        confirmText="SÍ, CANCELAR"
+        type="danger"
+      />
+      <ConfirmModal
+        isOpen={confirmCloseNuevoClienteOpen}
+        onClose={() => setConfirmCloseNuevoClienteOpen(false)}
+        onConfirm={closeNuevoClienteModal}
+        title="SALIR"
+        message="¿Seguro que deseas salir? Se borrarán los datos ingresados."
+        confirmText="SÍ, SALIR"
+        type="warning"
+      />
     </div>
   );
 }
