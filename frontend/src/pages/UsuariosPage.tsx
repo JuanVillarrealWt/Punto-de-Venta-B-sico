@@ -22,11 +22,11 @@ import Modal from '../components/Modal';
 import ConfirmModal from '../components/ConfirmModal';
 import { useAuthStore } from '../store/authStore';
 import { FIELD_LENGTHS } from '../utils/fieldLengths';
+import { isValidEcuadorianCedula } from '../utils/ecuadorCedula';
 
 // ─── Helpers de validación (frontend) ───────────────────────────────────────
 const SOLO_LETRAS   = /^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ]+$/;
 const EMAIL_REGEX   = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-const CEDULA_EC     = /^(0[1-9]|1[0-9]|2[0-4])\d{8}$/;
 const USERNAME_RX   = /^[a-zA-Z0-9_]+$/;
 const capitalizeFirst = (s: string) =>
   s.length === 0 ? '' : s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
@@ -54,8 +54,8 @@ function validarCamposUsuario(data: UsuarioFormData, isEditing: boolean): Record
 
   if (!data.cedula)
     err.cedula = 'La cédula es requerida.';
-  else if (!CEDULA_EC.test(data.cedula))
-    err.cedula = 'Debe ser cédula ecuatoriana válida de 10 dígitos.';
+  else if (!isValidEcuadorianCedula(data.cedula))
+    err.cedula = 'Debe ser cédula ecuatoriana válida y pasar el dígito verificador.';
 
   if (!data.nombre)
     err.nombre = 'El nombre es requerido.';

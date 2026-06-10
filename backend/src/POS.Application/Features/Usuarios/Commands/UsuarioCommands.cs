@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using POS.Application.DTOs;
+using POS.Application.Validators;
 using System.Text.RegularExpressions;
 
 namespace POS.Application.Features.Usuarios.Commands;
@@ -34,7 +35,6 @@ public record ToggleBloqueoCommand(int Id) : IRequest<bool>;
 file static class UsuarioRules
 {
     public const string SoloLetrasPattern = @"^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ]+$";
-    public const string CedulaPattern = @"^(0[1-9]|1[0-9]|2[0-4])\d{8}$";
     public const string UsernamePattern = @"^[a-zA-Z0-9_]+$";
     public const string EmailPattern = @"^[^@\s]+@[^@\s]+\.[^@\s]+$";
 
@@ -58,7 +58,7 @@ file static class UsuarioRules
         v.RuleFor(cedula)
             .NotEmpty().WithMessage("La cédula es requerida.")
             .Length(10).WithMessage("La cédula debe tener exactamente 10 dígitos.")
-            .Matches(CedulaPattern).WithMessage("La cédula debe ser ecuatoriana (provincia 01-24) y tener 10 dígitos numéricos.");
+            .Must(EcuadorianCedulaValidator.IsValid).WithMessage("La cédula debe ser ecuatoriana válida y pasar el dígito verificador.");
     }
 }
 

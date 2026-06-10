@@ -19,10 +19,10 @@ import { ClienteSearchModal, ProductoSearchModal } from '../components/SearchMod
 import Modal from '../components/Modal';
 import ConfirmModal from '../components/ConfirmModal';
 import { FIELD_LENGTHS } from '../utils/fieldLengths';
+import { isValidEcuadorianCedula } from '../utils/ecuadorCedula';
 
 const SOLO_LETRAS = /^\p{L}+$/u;
 const EMAIL_REGEX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-const CEDULA_EC = /^(0[1-9]|1[0-9]|2[0-4])\d{8}$/;
 const TELEFONO_RX = /^09\d{8}$/;
 
 const emptyNuevoClienteForm: ClienteForm = {
@@ -43,8 +43,8 @@ function validarCliente(form: ClienteForm): Record<string, string> {
 
   if (!form.identificacion)
     err.identificacion = 'La cedula es requerida.';
-  else if (!CEDULA_EC.test(form.identificacion))
-    err.identificacion = 'Debe ser cedula ecuatoriana (provincia 01-24, 10 digitos).';
+  else if (!isValidEcuadorianCedula(form.identificacion))
+    err.identificacion = 'Debe ser cedula ecuatoriana valida y pasar el digito verificador.';
 
   if (!form.nombre)
     err.nombre = 'El nombre es requerido.';

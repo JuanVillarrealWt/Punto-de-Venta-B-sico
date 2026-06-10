@@ -9,11 +9,11 @@ import TablePagination from '../components/TablePagination';
 import { useDebounce } from '../hooks/useDebounce';
 import { getSearchInputMode, getSearchMaxLength, getSearchPlaceholder, sanitizeSearchValue, type SearchInputKind } from '../utils/searchInput';
 import { FIELD_LENGTHS } from '../utils/fieldLengths';
+import { isValidEcuadorianCedula } from '../utils/ecuadorCedula';
 
 // ─── Helpers de validación (frontend) ───────────────────────────────────────
 const SOLO_LETRAS  = /^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ]+$/; // Sin espacios en clientes
 const EMAIL_REGEX  = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-const CEDULA_EC    = /^(0[1-9]|1[0-9]|2[0-4])\d{8}$/;
 const TELEFONO_RX  = /^09\d{8}$/;
 
 // Primera letra mayúscula, resto minúsculas
@@ -25,8 +25,8 @@ function validarCampos(form: ClienteForm): Record<string, string> {
 
   if (!form.identificacion)
     err.identificacion = 'La cédula es requerida.';
-  else if (!CEDULA_EC.test(form.identificacion))
-    err.identificacion = 'Debe ser cédula ecuatoriana (provincia 01–24, 10 dígitos).';
+  else if (!isValidEcuadorianCedula(form.identificacion))
+    err.identificacion = 'Debe ser cédula ecuatoriana válida y pasar el dígito verificador.';
 
   if (!form.nombre)
     err.nombre = 'El nombre es requerido.';

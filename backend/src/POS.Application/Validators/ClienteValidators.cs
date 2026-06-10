@@ -10,9 +10,6 @@ namespace POS.Application.Validators;
 /// </summary>
 file static class ClienteRules
 {
-    // Cédula ecuatoriana: empieza con 01..24, exactamente 10 dígitos numéricos
-    public const string CedulaPattern     = @"^(0[1-9]|1[0-9]|2[0-4])\d{8}$";
-
     // Solo letras (incluye tildes y ñ), sin espacios ni números
     public const string SoloLetrasPattern = @"^[a-zA-ZáéíóúÁÉÍÓÚüÜñÑ]+$";
 
@@ -24,7 +21,7 @@ file static class ClienteRules
         v.RuleFor(prop)
             .NotEmpty().WithMessage("La cédula es requerida.")
             .Length(10).WithMessage("La cédula debe tener exactamente 10 dígitos.")
-            .Matches(CedulaPattern).WithMessage("La cédula debe ser ecuatoriana (provincia 01–24) y tener 10 dígitos numéricos.");
+            .Must(EcuadorianCedulaValidator.IsValid).WithMessage("La cédula debe ser ecuatoriana válida y pasar el dígito verificador.");
     }
 
     public static void AplicarReglasNombre<T>(AbstractValidator<T> v, System.Linq.Expressions.Expression<Func<T, string>> prop, string campo)
